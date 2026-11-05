@@ -1,0 +1,25 @@
+{
+  "name": "Complementary Unbound",
+  "match": "(?i)^ComplementaryUnbound",
+  "_source": "shaders/lib/common.glsl, r5.9.3 (docs/OCULUS-FORK-INVESTIGATION.md 7.1). SHADOW_QUALITY default not verified; any value above -1 enables shadows.",
+  "defaults": {
+    "WAVING_FOLIAGE": "true", "WAVING_LEAVES": "true", "WAVING_WATER_VERTEX": "true",
+    "SHADOW_QUALITY": "2", "COLORED_LIGHTING": "0", "LIGHTSHAFT_QUALI_DEFINE": "2"
+  },
+  "capabilities": {
+    "WAVING_FOLIAGE": { "any": [ { "define": "WAVING_FOLIAGE", "is": "defined" }, { "define": "WAVING_LEAVES", "is": "defined" } ] },
+    "WATER_WAVES": { "define": "WAVING_WATER_VERTEX", "is": "defined" },
+    "WATER_SHADING": { "always": true },
+    "CAUSTICS": { "define": "SHADOW_QUALITY", "gt": -1 },
+    "UNDERWATER_FOG": { "always": true },
+    "BLOCKLIGHT_TINT": { "always": true },
+    "SKYLIGHT_TINT": { "always": true },
+    "COLORED_LIGHT": { "all": [ { "define": "COLORED_LIGHTING", "gt": 0 }, { "define": "SHADOW_QUALITY", "gt": -1 } ] },
+    "GODRAYS": { "all": [ { "define": "LIGHTSHAFT_QUALI_DEFINE", "gt": 0 }, { "define": "SHADOW_QUALITY", "gt": -1 } ] },
+    "SUN_SHADOWS": { "always": true },
+    "DIRECTIONAL_LIGHT": { "always": true },
+    "VOLUMETRIC_LIGHT": {"all": [{"define": "LIGHTSHAFT_QUALI_DEFINE", "gt": 0}, {"define": "SHADOW_QUALITY", "gt": -1}]},
+    "ATMOSPHERIC_FOG": { "always": true },
+    "REFLECTIONS": { "always": true }
+  }
+}

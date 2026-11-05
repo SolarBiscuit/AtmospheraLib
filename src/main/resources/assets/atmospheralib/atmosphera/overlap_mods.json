@@ -1,0 +1,17 @@
+{
+  "_comment": "Capability -> mod ids that already provide it. While such a mod is installed, Atmosphera features with that capability stay off (unless their respect_overlap option is off). Resource packs can add entries; lists are merged.",
+  "WAVING_FOLIAGE": [],
+  "WATER_WAVES": [],
+  "WATER_SHADING": [],
+  "CAUSTICS": [],
+  "UNDERWATER_FOG": [],
+  "BLOCKLIGHT_TINT": [],
+  "SKYLIGHT_TINT": [],
+  "COLORED_LIGHT": [],
+  "GODRAYS": [],
+  "SUN_SHADOWS": [],
+  "DIRECTIONAL_LIGHT": [],
+  "VOLUMETRIC_LIGHT": [],
+  "ATMOSPHERIC_FOG": [],
+  "REFLECTIONS": []
+}

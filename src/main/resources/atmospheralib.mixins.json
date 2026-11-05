@@ -1,0 +1,23 @@
+{
+  "required": true,
+  "minVersion": "0.8.5",
+  "package": "com.solarbiscuit.atmosphera.lib.mixin",
+  "plugin": "com.solarbiscuit.atmosphera.lib.mixin.AtmosMixinPlugin",
+  "compatibilityLevel": "JAVA_17",
+  "refmap": "atmospheralib.refmap.json",
+  "client": [
+    "minecraft.LevelRendererMixin",
+    "sodium.BlockRendererMixin",
+    "sodium.ChunkShaderInterfaceMixin",
+    "sodium.ChunkShaderOptionsMixin",
+    "sodium.DefaultChunkRendererMixin",
+    "sodium.FluidRendererMixin",
+    "sodium.MaterialMixin",
+    "sodium.ShaderChunkRendererMixin",
+    "sodium.ShaderLoaderMixin",
+    "voxy.VoxyShaderLoaderMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "name": "Photon",
+  "match": "(?i)^photon",
+  "_source": "shaders/settings.glsl, v1.3b RatPatch (docs/OCULUS-FORK-INVESTIGATION.md 7.5).",
+  "defaults": {
+    "WAVING_PLANTS": "true", "WAVING_LEAVES": "true", "WATER_DISPLACEMENT": "true", "WATER_WAVES": "true",
+    "WATER_PARALLAX": "false", "WATER_CAUSTICS": "false", "COLORED_LIGHTS": "false", "CREPUSCULAR_RAYS": "true", "VL": "true"
+  },
+  "capabilities": {
+    "WAVING_FOLIAGE": { "any": [ { "define": "WAVING_PLANTS", "is": "defined" }, { "define": "WAVING_LEAVES", "is": "defined" } ] },
+    "WATER_WAVES": { "any": [ { "define": "WATER_DISPLACEMENT", "is": "defined" }, { "define": "WATER_WAVES", "is": "defined" }, { "define": "WATER_PARALLAX", "is": "defined" } ] },
+    "WATER_SHADING": { "always": true },
+    "CAUSTICS": { "define": "WATER_CAUSTICS", "is": "defined" },
+    "UNDERWATER_FOG": { "always": true },
+    "BLOCKLIGHT_TINT": { "always": true },
+    "SKYLIGHT_TINT": { "always": true },
+    "COLORED_LIGHT": { "define": "COLORED_LIGHTS", "is": "defined" },
+    "GODRAYS": { "any": [ { "define": "CREPUSCULAR_RAYS", "is": "defined" }, { "define": "VL", "is": "defined" } ] },
+    "SUN_SHADOWS": { "always": true },
+    "DIRECTIONAL_LIGHT": { "always": true },
+    "VOLUMETRIC_LIGHT": {"any": [{"define": "CREPUSCULAR_RAYS", "is": "defined"}, {"define": "VL", "is": "defined"}]},
+    "ATMOSPHERIC_FOG": { "always": true },
+    "REFLECTIONS": { "always": true }
+  }
+}

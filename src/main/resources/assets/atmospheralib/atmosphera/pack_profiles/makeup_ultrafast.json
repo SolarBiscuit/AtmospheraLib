@@ -1,0 +1,24 @@
+{
+  "name": "MakeUp UltraFast",
+  "match": "(?i)^MakeUp",
+  "_source": "shaders/lib/config.glsl, 9.5e (docs/OCULUS-FORK-INVESTIGATION.md 7.3). No caustics or coloured light code in the pack.",
+  "defaults": {
+    "WAVING": "1", "VANILLA_WATER": "false", "FOG_ACTIVE": "true", "VOL_LIGHT": "1"
+  },
+  "capabilities": {
+    "WAVING_FOLIAGE": { "define": "WAVING", "gt": 0 },
+    "WATER_WAVES": { "always": true },
+    "WATER_SHADING": { "define": "VANILLA_WATER", "ne": "true" },
+    "CAUSTICS": { "never": true },
+    "UNDERWATER_FOG": { "define": "FOG_ACTIVE", "is": "defined" },
+    "BLOCKLIGHT_TINT": { "always": true },
+    "SKYLIGHT_TINT": { "always": true },
+    "COLORED_LIGHT": { "never": true },
+    "GODRAYS": { "define": "VOL_LIGHT", "gt": 0 },
+    "SUN_SHADOWS": { "always": true },
+    "DIRECTIONAL_LIGHT": { "always": true },
+    "VOLUMETRIC_LIGHT": {"define": "VOL_LIGHT", "gt": 0},
+    "ATMOSPHERIC_FOG": { "always": true },
+    "REFLECTIONS": { "always": true }
+  }
+}

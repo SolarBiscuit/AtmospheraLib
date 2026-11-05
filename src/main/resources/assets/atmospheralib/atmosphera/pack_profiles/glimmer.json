@@ -1,0 +1,24 @@
+{
+  "name": "Glimmer",
+  "match": "(?i)^Glimmer",
+  "_source": "shaders/lib/common/settings.glsl, v1.5.2 (docs/OCULUS-FORK-INVESTIGATION.md 7.2). Wave normals are always on.",
+  "defaults": {
+    "WAVING_BLOCKS": "true", "VANILLA_WATER": "false", "CAUSTICS": "false", "FLOODFILL": "false", "GODRAYS": "1"
+  },
+  "capabilities": {
+    "WAVING_FOLIAGE": { "define": "WAVING_BLOCKS", "is": "defined" },
+    "WATER_WAVES": { "always": true },
+    "WATER_SHADING": { "define": "VANILLA_WATER", "ne": "true" },
+    "CAUSTICS": { "define": "CAUSTICS", "is": "defined" },
+    "UNDERWATER_FOG": { "always": true },
+    "BLOCKLIGHT_TINT": { "always": true },
+    "SKYLIGHT_TINT": { "always": true },
+    "COLORED_LIGHT": { "define": "FLOODFILL", "is": "defined" },
+    "GODRAYS": { "define": "GODRAYS", "gt": 0 },
+    "SUN_SHADOWS": { "always": true },
+    "DIRECTIONAL_LIGHT": { "always": true },
+    "VOLUMETRIC_LIGHT": { "define": "GODRAYS", "gt": 0 },
+    "ATMOSPHERIC_FOG": { "always": true },
+    "REFLECTIONS": { "always": true }
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "name": "Solas",
+  "match": "(?i)^Solas",
+  "_source": "shaders/lib/common.glsl, 3.7 RatPatch (docs/OCULUS-FORK-INVESTIGATION.md 7.4). Floodfill has no toggle.",
+  "defaults": {
+    "WAVING_PLANTS": "true", "WAVING_LEAVES": "true", "WATER_NORMALS": "3", "VANILLA_WATER": "false",
+    "WATER_CAUSTICS": "true", "WATER_FOG": "true", "VL": "true"
+  },
+  "capabilities": {
+    "WAVING_FOLIAGE": { "any": [ { "define": "WAVING_PLANTS", "is": "defined" }, { "define": "WAVING_LEAVES", "is": "defined" } ] },
+    "WATER_WAVES": { "define": "WATER_NORMALS", "gt": 0 },
+    "WATER_SHADING": { "define": "VANILLA_WATER", "ne": "true" },
+    "CAUSTICS": { "define": "WATER_CAUSTICS", "is": "defined" },
+    "UNDERWATER_FOG": { "define": "WATER_FOG", "is": "defined" },
+    "BLOCKLIGHT_TINT": { "always": true },
+    "SKYLIGHT_TINT": { "always": true },
+    "COLORED_LIGHT": { "always": true },
+    "GODRAYS": { "define": "VL", "is": "defined" },
+    "SUN_SHADOWS": { "always": true },
+    "DIRECTIONAL_LIGHT": { "always": true },
+    "VOLUMETRIC_LIGHT": {"define": "VL", "is": "defined"},
+    "ATMOSPHERIC_FOG": { "always": true },
+    "REFLECTIONS": { "always": true }
+  }
+}
