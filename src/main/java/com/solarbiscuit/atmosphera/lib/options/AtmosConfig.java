@@ -299,10 +299,19 @@ public final class AtmosConfig {
         return false;
     }
 
+    /** The TOML as a java.io.File, kept: a stat through it allocates nothing (0.4.0; NIO built paths and attributes). */
+    private java.io.File file;
+
     private long lastModified() {
         try {
-            return modConfig == null ? 0L : Files.getLastModifiedTime(modConfig.getFullPath()).toMillis();
-        } catch (IOException | RuntimeException e) {
+            if (modConfig == null) {
+                return 0L;
+            }
+            if (file == null) {
+                file = modConfig.getFullPath().toFile();
+            }
+            return file.lastModified();
+        } catch (RuntimeException e) {
             return 0L;
         }
     }

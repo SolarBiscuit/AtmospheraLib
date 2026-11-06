@@ -81,7 +81,13 @@ public final class GlslPrograms {
         if (emptyVao == 0) {
             emptyVao = GpuResources.vertexArray("fullscreen triangle");
         }
-        int previous = GL11C.glGetInteger(GL30C.GL_VERTEX_ARRAY_BINDING);
+        if (GlStateSnapshot.openCount() > 0) {
+            // Inside a snapshot (every post pass): its restore puts the vertex array back (0.3.23).
+            GL30C.glBindVertexArray(emptyVao);
+            GL11C.glDrawArrays(GL11C.GL_TRIANGLES, 0, 3);
+            return;
+        }
+        int previous = AtmosGl.getInteger(GL30C.GL_VERTEX_ARRAY_BINDING);
         GL30C.glBindVertexArray(emptyVao);
         GL11C.glDrawArrays(GL11C.GL_TRIANGLES, 0, 3);
         GL30C.glBindVertexArray(previous);

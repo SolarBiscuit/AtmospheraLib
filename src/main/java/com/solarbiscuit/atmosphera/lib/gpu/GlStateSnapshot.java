@@ -19,6 +19,8 @@ import java.nio.ByteBuffer;
  * ... draw ...
  * saved.restore();
  * </pre>
+ * Since 0.3.23 the values {@code GlStateManager} caches come from its cache once {@link GlStateCache} has checked
+ * them against the driver, and the vertex array binding is saved too.
  * Snapshots are pooled (0.3.22): {@link #restore()} returns the instance, so do not use it after restoring. Nested
  * saves are fine. A snapshot never restored is simply not reused.
  */
@@ -26,6 +28,7 @@ public final class GlStateSnapshot {
     private int drawFramebuffer;
     private int readFramebuffer;
     private int program;
+    private int vertexArray;
     private int activeTexture;
     private final int[] viewport = new int[4];
     private boolean blend;
@@ -45,6 +48,9 @@ public final class GlStateSnapshot {
     private static GlStateSnapshot[] pool = new GlStateSnapshot[4];
     private static int pooled;
     private boolean inUse;
+    private static int open;
+    private static final int[] VIEWPORT_CHECK = new int[4];
+    private static final boolean[] MASK_CHECK = new boolean[4];
 
     private GlStateSnapshot() {
     }
@@ -53,28 +59,21 @@ public final class GlStateSnapshot {
     public static GlStateSnapshot save() {
         GlStateSnapshot s = pooled > 0 ? pool[--pooled] : new GlStateSnapshot();
         s.inUse = true;
-        s.drawFramebuffer = GL11C.glGetInteger(GL30C.GL_DRAW_FRAMEBUFFER_BINDING);
-        s.readFramebuffer = GL11C.glGetInteger(GL30C.GL_READ_FRAMEBUFFER_BINDING);
-        s.program = GL11C.glGetInteger(GL20C.GL_CURRENT_PROGRAM);
-        s.activeTexture = GL11C.glGetInteger(GL13C.GL_ACTIVE_TEXTURE);
-        GL11C.glGetIntegerv(GL11C.GL_VIEWPORT, s.viewport);
-        s.blend = GL11C.glIsEnabled(GL11C.GL_BLEND);
-        s.blendSrcRgb = GL11C.glGetInteger(GL14C.GL_BLEND_SRC_RGB);
-        s.blendDstRgb = GL11C.glGetInteger(GL14C.GL_BLEND_DST_RGB);
-        s.blendSrcAlpha = GL11C.glGetInteger(GL14C.GL_BLEND_SRC_ALPHA);
-        s.blendDstAlpha = GL11C.glGetInteger(GL14C.GL_BLEND_DST_ALPHA);
-        s.depthTest = GL11C.glIsEnabled(GL11C.GL_DEPTH_TEST);
-        s.depthMask = GL11C.glGetBoolean(GL11C.GL_DEPTH_WRITEMASK);
-        s.cull = GL11C.glIsEnabled(GL11C.GL_CULL_FACE);
-        s.scissor = GL11C.glIsEnabled(GL11C.GL_SCISSOR_TEST);
-        GL11C.glGetIntegerv(GL11C.GL_SCISSOR_BOX, s.scissorBox);
-        s.stencil = GL11C.glIsEnabled(GL11C.GL_STENCIL_TEST);
-        try (MemoryStack stack = MemoryStack.stackPush()) {
-            ByteBuffer mask = stack.malloc(4);
-            GL11C.glGetBooleanv(GL11C.GL_COLOR_WRITEMASK, mask);
-            for (int i = 0; i < 4; i++) {
-                s.colorMask[i] = mask.get(i) != 0;
-            }
+        open++;
+        // Not cached by vanilla: always from the driver.
+        s.drawFramebuffer = AtmosGl.getInteger(GL30C.GL_DRAW_FRAMEBUFFER_BINDING);
+        s.readFramebuffer = AtmosGl.getInteger(GL30C.GL_READ_FRAMEBUFFER_BINDING);
+        s.program = AtmosGl.getInteger(GL20C.GL_CURRENT_PROGRAM);
+        s.vertexArray = AtmosGl.getInteger(GL30C.GL_VERTEX_ARRAY_BINDING);
+        AtmosGl.getIntegerv(GL11C.GL_SCISSOR_BOX, s.scissorBox);
+        s.stencil = AtmosGl.isEnabled(GL11C.GL_STENCIL_TEST);
+        // Cached by GlStateManager: from its cache once the check trusts the value (0.3.23, see GlStateCache).
+        boolean verify = GlStateCache.beginSnapshot();
+        try {
+            s.readCached(verify);
+        } catch (RuntimeException e) {
+            GlStateCache.disable(e);
+            s.readCached(false);
         }
         GL11C.glDisable(GL11C.GL_BLEND);
         GL11C.glDisable(GL11C.GL_DEPTH_TEST);
@@ -90,6 +89,7 @@ public final class GlStateSnapshot {
         GL30C.glBindFramebuffer(GL30C.GL_DRAW_FRAMEBUFFER, drawFramebuffer);
         GL30C.glBindFramebuffer(GL30C.GL_READ_FRAMEBUFFER, readFramebuffer);
         GL20C.glUseProgram(program);
+        GL30C.glBindVertexArray(vertexArray);
         GL13C.glActiveTexture(activeTexture);
         GL11C.glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
         GL14C.glBlendFuncSeparate(blendSrcRgb, blendDstRgb, blendSrcAlpha, blendDstAlpha);
@@ -103,10 +103,110 @@ public final class GlStateSnapshot {
         GL11C.glColorMask(colorMask[0], colorMask[1], colorMask[2], colorMask[3]);
         if (inUse) {
             inUse = false;
+            open--;
             if (pooled == pool.length) {
                 pool = java.util.Arrays.copyOf(pool, pooled * 2);
             }
             pool[pooled++] = this;
+        }
+    }
+
+    /** Snapshots taken and not yet restored (GlslPrograms.drawFullscreen leaves the VAO to the snapshot then). */
+    static int openCount() {
+        return open;
+    }
+
+    /**
+     * The values GlStateManager caches. A value comes from the cache when GlStateCache trusts it and this is not a
+     * checking snapshot; otherwise from the driver, compared with the cache while checking.
+     */
+    private void readCached(boolean verify) {
+        try {
+            readCachedOrThrow(verify);
+        } catch (IllegalAccessException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    private void readCachedOrThrow(boolean verify) throws IllegalAccessException {
+        if (GlStateCache.trusted(GlStateCache.ACTIVE_TEXTURE) && !verify) {
+            activeTexture = GlStateCache.activeTexture();
+        } else {
+            activeTexture = AtmosGl.getInteger(GL13C.GL_ACTIVE_TEXTURE);
+            if (verify) GlStateCache.compare(GlStateCache.ACTIVE_TEXTURE, activeTexture == GlStateCache.activeTexture());
+        }
+        if (GlStateCache.trusted(GlStateCache.VIEWPORT) && !verify) {
+            GlStateCache.viewport(viewport);
+        } else {
+            AtmosGl.getIntegerv(GL11C.GL_VIEWPORT, viewport);
+            if (verify) {
+                GlStateCache.viewport(VIEWPORT_CHECK);
+                GlStateCache.compare(GlStateCache.VIEWPORT, java.util.Arrays.equals(viewport, VIEWPORT_CHECK));
+            }
+        }
+        if (GlStateCache.trusted(GlStateCache.BLEND) && !verify) {
+            blend = GlStateCache.blend();
+        } else {
+            blend = AtmosGl.isEnabled(GL11C.GL_BLEND);
+            if (verify) GlStateCache.compare(GlStateCache.BLEND, blend == GlStateCache.blend());
+        }
+        if (GlStateCache.trusted(GlStateCache.BLEND_RGB) && !verify) {
+            blendSrcRgb = GlStateCache.blendSrcRgb();
+            blendDstRgb = GlStateCache.blendDstRgb();
+        } else {
+            blendSrcRgb = AtmosGl.getInteger(GL14C.GL_BLEND_SRC_RGB);
+            blendDstRgb = AtmosGl.getInteger(GL14C.GL_BLEND_DST_RGB);
+            if (verify) GlStateCache.compare(GlStateCache.BLEND_RGB,
+                    blendSrcRgb == GlStateCache.blendSrcRgb() && blendDstRgb == GlStateCache.blendDstRgb());
+        }
+        if (GlStateCache.trusted(GlStateCache.BLEND_ALPHA) && !verify) {
+            blendSrcAlpha = GlStateCache.blendSrcAlpha();
+            blendDstAlpha = GlStateCache.blendDstAlpha();
+        } else {
+            blendSrcAlpha = AtmosGl.getInteger(GL14C.GL_BLEND_SRC_ALPHA);
+            blendDstAlpha = AtmosGl.getInteger(GL14C.GL_BLEND_DST_ALPHA);
+            if (verify) GlStateCache.compare(GlStateCache.BLEND_ALPHA,
+                    blendSrcAlpha == GlStateCache.blendSrcAlpha() && blendDstAlpha == GlStateCache.blendDstAlpha());
+        }
+        if (GlStateCache.trusted(GlStateCache.DEPTH_TEST) && !verify) {
+            depthTest = GlStateCache.depthTest();
+        } else {
+            depthTest = AtmosGl.isEnabled(GL11C.GL_DEPTH_TEST);
+            if (verify) GlStateCache.compare(GlStateCache.DEPTH_TEST, depthTest == GlStateCache.depthTest());
+        }
+        if (GlStateCache.trusted(GlStateCache.DEPTH_MASK) && !verify) {
+            depthMask = GlStateCache.depthMask();
+        } else {
+            depthMask = AtmosGl.getBoolean(GL11C.GL_DEPTH_WRITEMASK);
+            if (verify) GlStateCache.compare(GlStateCache.DEPTH_MASK, depthMask == GlStateCache.depthMask());
+        }
+        if (GlStateCache.trusted(GlStateCache.CULL) && !verify) {
+            cull = GlStateCache.cull();
+        } else {
+            cull = AtmosGl.isEnabled(GL11C.GL_CULL_FACE);
+            if (verify) GlStateCache.compare(GlStateCache.CULL, cull == GlStateCache.cull());
+        }
+        if (GlStateCache.trusted(GlStateCache.SCISSOR) && !verify) {
+            scissor = GlStateCache.scissor();
+        } else {
+            scissor = AtmosGl.isEnabled(GL11C.GL_SCISSOR_TEST);
+            if (verify) GlStateCache.compare(GlStateCache.SCISSOR, scissor == GlStateCache.scissor());
+        }
+        if (GlStateCache.trusted(GlStateCache.COLOR_MASK) && !verify) {
+            GlStateCache.colorMask(colorMask);
+        } else {
+            AtmosGl.countQuery();
+            try (MemoryStack stack = MemoryStack.stackPush()) {
+                ByteBuffer mask = stack.malloc(4);
+                GL11C.glGetBooleanv(GL11C.GL_COLOR_WRITEMASK, mask);
+                for (int i = 0; i < 4; i++) {
+                    colorMask[i] = mask.get(i) != 0;
+                }
+            }
+            if (verify) {
+                GlStateCache.colorMask(MASK_CHECK);
+                GlStateCache.compare(GlStateCache.COLOR_MASK, java.util.Arrays.equals(colorMask, MASK_CHECK));
+            }
         }
     }
 

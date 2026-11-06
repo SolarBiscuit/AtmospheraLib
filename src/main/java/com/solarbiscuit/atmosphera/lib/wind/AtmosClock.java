@@ -38,9 +38,40 @@ public final class AtmosClock {
     private AtmosClock() {
     }
 
+    // Dev clock override (DevFlags.CLOCK_OVERRIDE, 0.6.1): held values, switched every CLOCK_HOLD seconds.
+    private static long overrideStart = -1;
+    private static int overrideIndex = -1;
+    private static double override = Double.NaN;
+
+    /** The held clock value while the dev clock override is on (NaN otherwise). Render thread. */
+    public static double overrideSeconds() {
+        return override;
+    }
+
     /** Render thread, once per frame before anything reads the clock. */
     public static void update(Minecraft mc) {
         long now = System.nanoTime();
+        float[] held = com.solarbiscuit.atmosphera.lib.client.DevFlags.CLOCK_OVERRIDE;
+        if (held.length > 0 && mc.level != null) {
+            // Frame-exact test shots: the world clock (and with it the wind, swell heights and Gale's sway) is held.
+            if (overrideStart < 0) {
+                overrideStart = now;
+            }
+            int index = (int) Math.min(held.length - 1,
+                    (now - overrideStart) / (long) (com.solarbiscuit.atmosphera.lib.client.DevFlags.CLOCK_HOLD * 1e9));
+            if (index != overrideIndex) {
+                overrideIndex = index;
+                com.solarbiscuit.atmosphera.lib.AtmospheraLib.LOGGER.info("[dev] clock override now {} s (value {} of {})",
+                        held[index], index + 1, held.length);
+            }
+            override = held[index];
+            seconds = override;
+            tracked = mc.level;
+            delta = 0.0;
+            lastNanos = now;
+            return;
+        }
+        override = Double.NaN;
         double real = lastNanos == 0L ? 0.0 : Math.min((now - lastNanos) / 1.0e9, 0.25);
         lastNanos = now;
         ClientLevel level = mc.level;

@@ -182,7 +182,7 @@ public final class GpuTimers {
                 }
                 long t0 = GL33C.glGetQueryObjecti64(start, GL15C.GL_QUERY_RESULT);
                 long t1 = GL33C.glGetQueryObjecti64(end, GL15C.GL_QUERY_RESULT);
-                if (t1 > t0) {
+                if (t1 >= t0) {
                     totalNanos += t1 - t0;
                     frames++;
                 }

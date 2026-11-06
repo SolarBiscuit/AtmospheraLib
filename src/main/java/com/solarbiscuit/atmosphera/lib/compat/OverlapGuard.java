@@ -57,6 +57,10 @@ public final class OverlapGuard {
             return "needs OpenGL " + feature.minGl() / 10 + "." + feature.minGl() % 10 + " (this driver: "
                     + com.solarbiscuit.atmosphera.lib.gpu.GlCaps.describe() + ")";
         }
+        String units = com.solarbiscuit.atmosphera.lib.gpu.TerrainSamplers.unitProblem(feature);
+        if (units != null) {
+            return units;
+        }
         boolean pipeline = feature.uses(AtmosFeature.Uses.TERRAIN_SHADER) || feature.uses(AtmosFeature.Uses.MESH_BITS)
                 || feature.uses(AtmosFeature.Uses.LIGHT_BITS) || feature.uses(AtmosFeature.Uses.SCENE_DEPTH)
                 || feature.uses(AtmosFeature.Uses.SCENE_COLOR);

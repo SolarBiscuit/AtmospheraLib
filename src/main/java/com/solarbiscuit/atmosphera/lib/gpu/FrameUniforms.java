@@ -33,12 +33,18 @@ public final class FrameUniforms {
         void write(float[] out);
     }
 
-    private record Slot(String name, String comment, Vec4Source source) {
+    /** {@code feature} null: written every frame; otherwise zeros while that feature is inactive (0.4.0). */
+    private record Slot(String name, String comment, Vec4Source source,
+                        com.solarbiscuit.atmosphera.lib.feature.AtmosFeature feature) {
     }
 
     /** World positions are wrapped at this period so they stay precise in a float. */
     public static final double WRAP = 4096.0;
-    private static final int MAX_SLOTS = 32;
+    /**
+     * 0.4.0: 128 vec4 = 2 KB per frame (was 32). std140 blocks may hold at least 16 KB
+     * ({@code GL_MAX_UNIFORM_BLOCK_SIZE}), so this stays far inside every driver's limit.
+     */
+    public static final int MAX_SLOTS = 128;
 
     private static final List<Slot> SLOTS = new ArrayList<>();
     private static List<Slot> frozen;
@@ -81,6 +87,10 @@ public final class FrameUniforms {
             out[3] = 0f;
         });
         lib("atmos_Flags", "x: scene depth valid, y: scene colour valid, z: camera in water, w: camera in lava", FrameUniforms::writeFlags);
+        lib("atmos_WindAxes", "travel weights of the wind along +x, -x, +z, -z (max(+-dir, 0)^2, sum 1); per frame, not per position (0.4.0)",
+                FrameUniforms::writeWindAxes);
+        lib("atmos_Column", "column field: x window size (0 = off), y min build height, zw window centre minus camera (0.5.0)",
+                com.solarbiscuit.atmosphera.lib.world.ColumnFieldShader::writeSlot);
         lib("atmos_Lod", "x: LOD transition start, y: transition end (blocks from the camera), z: vanilla render distance (blocks), w: 1 while Voxy LODs draw Atmosphera shading", out -> {
             Vec4Source source = lodSource;
             if (source != null) {
@@ -98,14 +108,23 @@ public final class FrameUniforms {
     }
 
     private static void lib(String name, String comment, Vec4Source source) {
-        SLOTS.add(new Slot(name, comment, source));
+        SLOTS.add(new Slot(name, comment, source, null));
     }
 
     /**
      * Adds a vec4 to the AtmosFrame block. {@code glslName} must be unique, for example {@code torrente_WaterColor}.
      * The source is called once per frame even when the owning feature is off, so keep it cheap.
      */
-    public static synchronized void vec4(String glslName, String comment, Vec4Source source) {
+    public static void vec4(String glslName, String comment, Vec4Source source) {
+        vec4(null, glslName, comment, source);
+    }
+
+    /**
+     * Like {@link #vec4(String, String, Vec4Source)}, but the source runs only while {@code feature} is active; the slot
+     * holds zeros otherwise (0.4.0). Snippets of an inactive feature are not compiled in, so nothing reads them.
+     */
+    public static synchronized void vec4(com.solarbiscuit.atmosphera.lib.feature.AtmosFeature feature, String glslName,
+                                         String comment, Vec4Source source) {
         if (frozen != null) {
             throw new IllegalStateException("Atmosphera frame uniforms must be registered during mod construction");
         }
@@ -117,7 +136,7 @@ public final class FrameUniforms {
                 throw new IllegalArgumentException("Duplicate AtmosFrame member " + glslName);
             }
         }
-        SLOTS.add(new Slot(glslName, comment, source));
+        SLOTS.add(new Slot(glslName, comment, source, feature));
     }
 
     public static synchronized void freeze() {
@@ -189,6 +208,10 @@ public final class FrameUniforms {
         staging.clear();
         for (Slot slot : slots) {
             SCRATCH[0] = SCRATCH[1] = SCRATCH[2] = SCRATCH[3] = 0f;
+            if (slot.feature() != null && !slot.feature().isActive()) {
+                staging.put(SCRATCH);
+                continue;
+            }
             try {
                 slot.source().write(SCRATCH);
             } catch (RuntimeException e) {
@@ -228,6 +251,12 @@ public final class FrameUniforms {
             out[1] = (float) (com.solarbiscuit.atmosphera.lib.wind.AtmosClock.worldSeconds(level, partial) % 3600.0);
             out[2] = (float) ((level.getDayTime() % 24000L) / 24000.0);
             out[3] = level.getRainLevel(partial);
+            double held = com.solarbiscuit.atmosphera.lib.wind.AtmosClock.overrideSeconds();
+            if (!Double.isNaN(held)) {
+                // Dev clock override (AtmosClock holds the world clock too, 0.6.1).
+                out[0] = (float) held;
+                out[1] = (float) held;
+            }
         }
     }
 
@@ -253,17 +282,42 @@ public final class FrameUniforms {
         out[3] = WIND.gust;
     }
 
+    /**
+     * Gale's gale_axisWeights, once per frame on the CPU (audit R3). Reuses the wind that atmos_Wind (the slot before)
+     * just sampled, so both slots see the same direction.
+     */
+    private static void writeWindAxes(float[] out) {
+        if (Minecraft.getInstance().level == null) {
+            return;
+        }
+        axisWeights(WIND.dirX, WIND.dirZ, out);
+    }
+
+    /** The four travel weights of a wind direction: max(+-x, 0)^2, max(+-z, 0)^2, normalised to sum 1. */
+    public static void axisWeights(float dirX, float dirZ, float[] out) {
+        float px = Math.max(dirX, 0f), nx = Math.max(-dirX, 0f), pz = Math.max(dirZ, 0f), nz = Math.max(-dirZ, 0f);
+        px *= px;
+        nx *= nx;
+        pz *= pz;
+        nz *= nz;
+        float sum = Math.max(px + nx + pz + nz, 1e-4f);
+        out[0] = px / sum;
+        out[1] = nx / sum;
+        out[2] = pz / sum;
+        out[3] = nz / sum;
+    }
+
     private static void writeSun(float[] out) {
         ClientLevel level = Minecraft.getInstance().level;
         if (level == null) {
             return;
         }
         float partial = partialTick();
-        float angle = level.getSunAngle(partial);
-        // Vanilla sun path: rises in the east (+x), crosses overhead, sets in the west.
-        out[0] = (float) -Math.sin(angle);
-        out[1] = (float) Math.cos(angle);
-        out[2] = 0f;
+        // 0.5.0: the drawn sun (Nuit API v3) when a skybox moves it, else vanilla's path (same values as before).
+        com.solarbiscuit.atmosphera.lib.world.SunSource.update(level, partial);
+        out[0] = com.solarbiscuit.atmosphera.lib.world.SunSource.dirX();
+        out[1] = com.solarbiscuit.atmosphera.lib.world.SunSource.dirY();
+        out[2] = com.solarbiscuit.atmosphera.lib.world.SunSource.dirZ();
         out[3] = 1f - level.getSkyDarken(partial) / 15f;
     }
 

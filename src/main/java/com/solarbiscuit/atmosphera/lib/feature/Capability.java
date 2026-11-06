@@ -24,6 +24,8 @@ public enum Capability {
     ATMOSPHERIC_FOG,
     /** Screen-space or planar reflections. */
     REFLECTIONS,
+    /** Lib-provided world data for terrain shaders (the column field); never provided by anything else. */
+    WORLD_DATA,
     /** Developer/debug visuals; never provided by anything else. */
     DEBUG
 }

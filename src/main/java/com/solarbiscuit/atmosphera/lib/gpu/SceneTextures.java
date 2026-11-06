@@ -56,8 +56,23 @@ public final class SceneTextures {
             return;
         }
         RenderTarget main = Minecraft.getInstance().getMainRenderTarget();
-        int source = GL11C.glGetInteger(GL30C.GL_DRAW_FRAMEBUFFER_BINDING);
-        int previousRead = GL11C.glGetInteger(GL30C.GL_READ_FRAMEBUFFER_BINDING);
+        int source = AtmosGl.getInteger(GL30C.GL_DRAW_FRAMEBUFFER_BINDING);
+        if (AtmosGl.dsa() && (!depth || DEPTH.ready(source, main.width, main.height))
+                && (!color || COLOR.ready(source, main.width, main.height))) {
+            // Steady state with direct state access (0.3.23): blit by name, no binding read or changed.
+            if (depth) {
+                GpuTimers.begin("scene_depth_copy");
+                DEPTH.blitNamed(source, main.width, main.height);
+                GpuTimers.end("scene_depth_copy");
+            }
+            if (color) {
+                GpuTimers.begin("scene_color_copy");
+                COLOR.blitNamed(source, main.width, main.height);
+                GpuTimers.end("scene_color_copy");
+            }
+            return;
+        }
+        int previousRead = AtmosGl.getInteger(GL30C.GL_READ_FRAMEBUFFER_BINDING);
         GL30C.glBindFramebuffer(GL30C.GL_READ_FRAMEBUFFER, source);
         if (depth) {
             GpuTimers.begin("scene_depth_copy");
@@ -75,12 +90,8 @@ public final class SceneTextures {
 
     /** Binds the copies to their units without disturbing GlStateManager's tracked active unit. */
     public static void bind() {
-        int previous = GL11C.glGetInteger(GL13C.GL_ACTIVE_TEXTURE);
-        GL13C.glActiveTexture(GL13C.GL_TEXTURE0 + DEPTH_UNIT);
-        GL11C.glBindTexture(GL11C.GL_TEXTURE_2D, DEPTH.valid ? DEPTH.texture : 0);
-        GL13C.glActiveTexture(GL13C.GL_TEXTURE0 + COLOR_UNIT);
-        GL11C.glBindTexture(GL11C.GL_TEXTURE_2D, COLOR.valid ? COLOR.texture : 0);
-        GL13C.glActiveTexture(previous);
+        AtmosGl.bindTextureUnit(DEPTH_UNIT, GL11C.GL_TEXTURE_2D, DEPTH.valid ? DEPTH.texture : 0);
+        AtmosGl.bindTextureUnit(COLOR_UNIT, GL11C.GL_TEXTURE_2D, COLOR.valid ? COLOR.texture : 0);
     }
 
     public static void deleteAll() {
@@ -111,10 +122,30 @@ public final class SceneTextures {
         private int formatHeight;
         private int formatCached;
         private int formatAge;
+        /** Source format the copy was allocated for (the colour copy itself is always RGBA8). */
+        private int allocatedFrom;
 
         Copy(String label, boolean depth) {
             this.label = label;
             this.depth = depth;
+        }
+
+        /**
+         * Whether a plain named blit is all this frame's copy needs: allocated for this source, size and format, not
+         * using the copy-texture fallback, no verification pending and no format re-read due.
+         */
+        boolean ready(int source, int w, int h) {
+            return !broken && framebuffer != 0 && !copyTexture && !verifyNext && formatCached != 0
+                    && source == formatSource && w == formatWidth && h == formatHeight && formatAge + 1 < FORMAT_RECHECK
+                    && w == width && h == height && formatCached == allocatedFrom;
+        }
+
+        /** The copy by framebuffer name (GL 4.5 direct state access): no binding is read or changed. */
+        void blitNamed(int source, int w, int h) {
+            formatAge++;
+            int mask = depth ? GL11C.GL_DEPTH_BUFFER_BIT : GL11C.GL_COLOR_BUFFER_BIT;
+            AtmosGl.blitNamed(source, framebuffer, w, h, mask);
+            valid = true;
         }
 
         /** Expects {@code source} bound as the read framebuffer. */
@@ -135,7 +166,7 @@ public final class SceneTextures {
                 fail("could not read the source attachment format of framebuffer " + source);
                 return;
             }
-            if (framebuffer == 0 || w != width || h != height || format != internalFormat) {
+            if (framebuffer == 0 || w != width || h != height || format != allocatedFrom) {
                 boolean ok = allocate(w, h, format);
                 GL30C.glBindFramebuffer(GL30C.GL_READ_FRAMEBUFFER, source);
                 if (!ok) {
@@ -208,6 +239,7 @@ public final class SceneTextures {
         }
 
         private boolean allocate(int w, int h, int format) {
+            int sourceFormatOf = format;
             release();
             int pixelFormat;
             int pixelType;
@@ -251,6 +283,7 @@ public final class SceneTextures {
             width = w;
             height = h;
             internalFormat = format;
+            allocatedFrom = sourceFormatOf;
             GpuResources.textureBytes(texture, (long) w * h * bytesPerTexel(format));
             verifyNext = true;
             AtmospheraLib.LOGGER.debug("{} copy allocated: {}x{}, format 0x{}.", label, w, h, Integer.toHexString(format));

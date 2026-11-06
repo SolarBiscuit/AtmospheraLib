@@ -57,7 +57,7 @@ public final class RenderTargets {
     /** The framebuffer bound for drawing now, with its attachments (cached until it or the window size changes). */
     public static Scene scene() {
         RenderTarget main = Minecraft.getInstance().getMainRenderTarget();
-        int fbo = GL11C.glGetInteger(GL30C.GL_DRAW_FRAMEBUFFER_BINDING);
+        int fbo = AtmosGl.getInteger(GL30C.GL_DRAW_FRAMEBUFFER_BINDING);
         if (cached != null && cached.framebuffer() == fbo && main.width == cachedMainWidth
                 && main.height == cachedMainHeight) {
             return cached;
@@ -154,6 +154,70 @@ public final class RenderTargets {
             colorFboTexture = 0;
         }
         cached = null;
+    }
+
+    /** A ping-pong pair for temporal passes (0.6.0). */
+    public static History history(String owner, int divisor, int internalFormat) {
+        return new History(owner, divisor, internalFormat);
+    }
+
+    /**
+     * Two targets of the same size: each frame a pass reads {@link #previous()} (last frame's result) and writes
+     * {@link #current()}, then calls {@link #swap()}. {@link #valid()} is false after a (re)allocation, and the
+     * owner resets it with {@link #invalidate()} when the view is not continuous (dimension change, teleport, a skipped
+     * frame): the pass must then ignore the history.
+     */
+    public static final class History {
+        private final Target a;
+        private final Target b;
+        private boolean flip;
+        private boolean valid;
+        private int width;
+        private int height;
+
+        private History(String owner, int divisor, int internalFormat) {
+            a = new Target(owner + " (history A)", Math.max(1, divisor), internalFormat, true);
+            b = new Target(owner + " (history B)", Math.max(1, divisor), internalFormat, true);
+        }
+
+        public boolean ensure(Scene scene) {
+            boolean ok = a.ensure(scene) && b.ensure(scene);
+            if (!ok || a.width() != width || a.height() != height) {
+                width = a.width();
+                height = a.height();
+                valid = false;
+            }
+            return ok;
+        }
+
+        public Target current() {
+            return flip ? b : a;
+        }
+
+        public Target previous() {
+            return flip ? a : b;
+        }
+
+        /** After writing {@link #current()}: it becomes the previous one, and the history is valid. */
+        public void swap() {
+            flip = !flip;
+            valid = true;
+        }
+
+        public boolean valid() {
+            return valid;
+        }
+
+        public void invalidate() {
+            valid = false;
+        }
+
+        public void release() {
+            a.release();
+            b.release();
+            valid = false;
+            width = height = 0;
+        }
     }
 
     /** One colour texture with its framebuffer. */

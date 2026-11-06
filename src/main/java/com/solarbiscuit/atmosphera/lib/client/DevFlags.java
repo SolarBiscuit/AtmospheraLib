@@ -23,6 +23,15 @@ public final class DevFlags {
      * taken as a request (deleted, then a screenshot saved as with F2). For tools that cannot focus the window.
      */
     public static final boolean SHOT_FILE;
+    /** Caps the texture units the lib may assign ({@code max_units}, 0 = the driver's), to test the fallback (0.4.0). */
+    public static final int MAX_UNITS;
+    /**
+     * Test screenshots of animated effects ({@code clock_override=v1,v2,...}, seconds): atmos_Time.x and .y are held
+     * at v1, then v2, ..., each for {@code clock_hold} seconds (default 20) from the first frame in a world, the last
+     * value staying. Empty = the real clocks. For frame-exact A/Bs of water and the hourly-wrap check (0.4.0).
+     */
+    public static final float[] CLOCK_OVERRIDE;
+    public static final float CLOCK_HOLD;
 
     static {
         Properties file = new Properties();
@@ -47,6 +56,34 @@ public final class DevFlags {
         STATUS_EVERY = every;
         CLOCK_LOG = Boolean.parseBoolean(file.getProperty("clock_log", "false").trim());
         SHOT_FILE = Boolean.parseBoolean(file.getProperty("shot_file", "false").trim());
+        int units;
+        try {
+            units = Integer.parseInt(file.getProperty("max_units", "0").trim());
+        } catch (NumberFormatException e) {
+            units = 0;
+        }
+        MAX_UNITS = units;
+        String clocks = file.getProperty("clock_override", "").trim();
+        float[] values = new float[0];
+        if (!clocks.isEmpty()) {
+            try {
+                String[] parts = clocks.split(",");
+                values = new float[parts.length];
+                for (int i = 0; i < parts.length; i++) {
+                    values[i] = Float.parseFloat(parts[i].trim());
+                }
+            } catch (NumberFormatException e) {
+                values = new float[0];
+            }
+        }
+        CLOCK_OVERRIDE = values;
+        float hold;
+        try {
+            hold = Float.parseFloat(file.getProperty("clock_hold", "20").trim());
+        } catch (NumberFormatException e) {
+            hold = 20f;
+        }
+        CLOCK_HOLD = Math.max(1f, hold);
     }
 
     private DevFlags() {

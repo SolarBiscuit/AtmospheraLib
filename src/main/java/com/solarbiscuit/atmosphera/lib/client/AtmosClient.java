@@ -56,6 +56,19 @@ public final class AtmosClient {
         MinecraftForge.EVENT_BUS.addListener((RegisterClientCommandsEvent e) -> StatusCommand.register(e.getDispatcher()));
         MinecraftForge.EVENT_BUS.addListener(AtmosClient::debugText);
         MinecraftForge.EVENT_BUS.addListener(AtmosClient::shutdown);
+        // Column field (0.5.0): client chunks and logins (block-state ids are reassigned per server).
+        MinecraftForge.EVENT_BUS.addListener((net.minecraftforge.event.level.ChunkEvent.Load e) -> {
+            if (e.getLevel().isClientSide() && e.getChunk() instanceof net.minecraft.world.level.chunk.LevelChunk chunk) {
+                com.solarbiscuit.atmosphera.lib.world.ColumnField.onChunkLoad(chunk);
+            }
+        });
+        MinecraftForge.EVENT_BUS.addListener((net.minecraftforge.event.level.ChunkEvent.Unload e) -> {
+            if (e.getLevel().isClientSide() && e.getChunk() instanceof net.minecraft.world.level.chunk.LevelChunk chunk) {
+                com.solarbiscuit.atmosphera.lib.world.ColumnField.onChunkUnload(chunk);
+            }
+        });
+        MinecraftForge.EVENT_BUS.addListener((net.minecraftforge.client.event.ClientPlayerNetworkEvent.LoggingIn e) ->
+                com.solarbiscuit.atmosphera.lib.world.CasterTable.reset());
         if (AtmosCompat.hasSodiumPort()) {
             OptionsPage.register();
         } else {
@@ -70,6 +83,7 @@ public final class AtmosClient {
     private static void setup(FMLClientSetupEvent event) {
         event.enqueueWork(() -> {
             // Every Atmosphera mod has been constructed by now: late registrations, then the layout is fixed.
+            com.solarbiscuit.atmosphera.lib.world.ColumnFieldShader.registerLate();
             DebugFeatures.registerLate();
             FeatureRegistry.freeze();
             VertexBits.freeze();
@@ -120,6 +134,9 @@ public final class AtmosClient {
         if (stage == RenderLevelStageEvent.Stage.AFTER_SKY) {
             frame++;
             GpuTimers.newFrame();
+            com.solarbiscuit.atmosphera.lib.gpu.AtmosGl.newFrame();
+            com.solarbiscuit.atmosphera.lib.gpu.TerrainSamplers.resolve();
+            com.solarbiscuit.atmosphera.lib.world.ColumnField.frame(frame);
             if (com.solarbiscuit.atmosphera.lib.compat.voxy.VoxyBridge.isActive()) {
                 //Voxy draws its LODs with the AtmosFrame block too, also in frames where no Xenon program was patched
                 FrameUniforms.update(frame);
@@ -148,6 +165,20 @@ public final class AtmosClient {
         }
     }
 
+    /**
+     * The {@link PostPasses.Stage#BEFORE_TRANSLUCENT} stage, from the start of Xenon's translucent terrain pass right
+     * after the scene copies (0.4.0).
+     */
+    public static void runBeforeTranslucent(org.joml.Matrix4fc projection, org.joml.Matrix4fc modelView) {
+        PostPasses.Stage stage = PostPasses.Stage.BEFORE_TRANSLUCENT;
+        if (PostPasses.count() > 0 && PostPasses.anyActive(stage)) {
+            net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+            PostPasses.Context context = POST_CONTEXTS[stage.ordinal()].set(projection, modelView, mc.getFrameTime(),
+                    mc.gameRenderer.getMainCamera().getPosition());
+            PostPasses.run(stage, context);
+        }
+    }
+
     private static void debugText(CustomizeGuiOverlayEvent.DebugText event) {
         if (LibConfig.debugLine == null || !LibConfig.debugLine.get() || FeatureRegistry.all().isEmpty()) {
             return;
@@ -160,6 +191,7 @@ public final class AtmosClient {
     private static void shutdown(GameShuttingDownEvent event) {
         try {
             SceneTextures.deleteAll();
+            com.solarbiscuit.atmosphera.lib.world.ColumnField.release();
             FrameUniforms.delete();
             GpuTimers.deleteAll();
             GpuResources.deleteAll();

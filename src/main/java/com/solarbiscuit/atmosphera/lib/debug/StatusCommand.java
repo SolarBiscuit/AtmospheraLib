@@ -106,6 +106,10 @@ public final class StatusCommand {
                 + PostPasses.count() + " post passes | mesh hooks running: " + state.blockHooks().length + " block, "
                 + state.fluidHooks().length + " fluid");
         out.add("Scene copies: " + SceneTextures.describe());
+        out.add("Terrain samplers: " + com.solarbiscuit.atmosphera.lib.gpu.TerrainSamplers.describe());
+        out.add("World data: " + com.solarbiscuit.atmosphera.lib.world.ColumnField.describe() + " | sun: "
+                + com.solarbiscuit.atmosphera.lib.world.SunSource.describe());
+        out.add(com.solarbiscuit.atmosphera.lib.gpu.AtmosGl.describe());
         out.addAll(com.solarbiscuit.atmosphera.lib.compat.voxy.VoxyBridge.describe());
         Map<GpuResources.Type, Integer> counts = GpuResources.counts();
         out.add("Live GL objects: " + (counts.isEmpty() ? "none" : counts) + String.format(java.util.Locale.ROOT,

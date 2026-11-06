@@ -33,7 +33,20 @@ public abstract class DefaultChunkRendererMixin {
         if (pass.isReverseOrder()) {
             AtmosState state = AtmosState.current();
             SceneTextures.copyBeforeTranslucent(state.sceneDepth(), state.sceneColor());
+            // The frame block first, so BEFORE_TRANSLUCENT passes read this frame's values (0.4.0).
+            FrameUniforms.update(AtmosClient.frame());
+            AtmosClient.runBeforeTranslucent(matrices.projection(), matrices.modelView());
+            // GPU time of Xenon's translucent terrain (water, glass) for A/Bs of translucent snippets (0.5.0).
+            com.solarbiscuit.atmosphera.lib.gpu.GpuTimers.begin("terrain_translucent");
         }
         FrameUniforms.update(AtmosClient.frame());
+    }
+
+    @Inject(method = "render", at = @At("RETURN"))
+    private void atmos$afterPass(ChunkRenderMatrices matrices, CommandList commandList, ChunkRenderListIterable renderLists,
+                                 TerrainRenderPass pass, CameraTransform camera, CallbackInfo ci) {
+        if (pass.isReverseOrder() && ShaderPatcher.isPatching()) {
+            com.solarbiscuit.atmosphera.lib.gpu.GpuTimers.end("terrain_translucent");
+        }
     }
 }

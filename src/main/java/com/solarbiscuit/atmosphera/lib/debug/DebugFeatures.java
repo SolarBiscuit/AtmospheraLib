@@ -46,7 +46,84 @@ public final class DebugFeatures {
         } catch (IllegalStateException e) {
             AtmospheraLib.LOGGER.info("Debug light feature skipped: {}", e.getMessage());
         }
+        try {
+            samplers();
+        } catch (IllegalStateException e) {
+            AtmospheraLib.LOGGER.info("Debug sampler feature skipped: {}", e.getMessage());
+        }
     }
+
+    private static int whiteTexture;
+
+    /** A 1x1 white RGBA8 texture, made on first use (render thread). */
+    private static int white() {
+        if (whiteTexture == 0) {
+            whiteTexture = com.solarbiscuit.atmosphera.lib.gpu.GpuResources.texture("debug white");
+            int previousUnit = org.lwjgl.opengl.GL11C.glGetInteger(org.lwjgl.opengl.GL13C.GL_ACTIVE_TEXTURE);
+            org.lwjgl.opengl.GL13C.glActiveTexture(org.lwjgl.opengl.GL13C.GL_TEXTURE15);
+            int previous = org.lwjgl.opengl.GL11C.glGetInteger(org.lwjgl.opengl.GL11C.GL_TEXTURE_BINDING_2D);
+            org.lwjgl.opengl.GL11C.glBindTexture(org.lwjgl.opengl.GL11C.GL_TEXTURE_2D, whiteTexture);
+            org.lwjgl.opengl.GL11C.glTexParameteri(org.lwjgl.opengl.GL11C.GL_TEXTURE_2D, org.lwjgl.opengl.GL11C.GL_TEXTURE_MIN_FILTER, org.lwjgl.opengl.GL11C.GL_NEAREST);
+            org.lwjgl.opengl.GL11C.glTexParameteri(org.lwjgl.opengl.GL11C.GL_TEXTURE_2D, org.lwjgl.opengl.GL11C.GL_TEXTURE_MAG_FILTER, org.lwjgl.opengl.GL11C.GL_NEAREST);
+            com.solarbiscuit.atmosphera.lib.gpu.Uploads.begin(4);
+            org.lwjgl.opengl.GL11C.glTexImage2D(org.lwjgl.opengl.GL11C.GL_TEXTURE_2D, 0, org.lwjgl.opengl.GL11C.GL_RGBA8, 1, 1, 0,
+                    org.lwjgl.opengl.GL11C.GL_RGBA, org.lwjgl.opengl.GL11C.GL_UNSIGNED_BYTE, new int[] {-1});
+            com.solarbiscuit.atmosphera.lib.gpu.Uploads.end();
+            org.lwjgl.opengl.GL11C.glBindTexture(org.lwjgl.opengl.GL11C.GL_TEXTURE_2D, previous);
+            org.lwjgl.opengl.GL13C.glActiveTexture(previousUnit);
+        }
+        return whiteTexture;
+    }
+
+    private static int stageFbo;
+
+    /**
+     * Lib 0.4.0 check: two requested terrain samplers (units 16 and up, one per stage) and a BEFORE_TRANSLUCENT pass.
+     * Both samplers hold a white texel, so terrain looks unchanged when they are bound right; a wrong binding reads 0
+     * and turns terrain black (fragment) or sinks it by 4 blocks (vertex). The pass clears a 1x1 target of its own
+     * (GPU timer "debug_before_translucent"). With {@code max_units=16} the feature turns off: "no free texture unit".
+     */
+    private static void samplers() {
+        AtmosFeature feature = AtmosFeature.builder(AtmospheraLib.MOD_ID, "debug_samplers")
+                .provides(Capability.DEBUG).uses(AtmosFeature.Uses.TERRAIN_SHADER)
+                .enabledWhen(() -> true).register();
+        com.solarbiscuit.atmosphera.lib.gpu.TerrainSamplers.request(feature, "atmos_DebugFrag",
+                org.lwjgl.opengl.GL11C.GL_TEXTURE_2D, com.solarbiscuit.atmosphera.lib.gpu.TerrainSamplers.Stage.FRAGMENT, 0,
+                DebugFeatures::white);
+        com.solarbiscuit.atmosphera.lib.gpu.TerrainSamplers.request(feature, "atmos_DebugVert",
+                org.lwjgl.opengl.GL11C.GL_TEXTURE_2D, com.solarbiscuit.atmosphera.lib.gpu.TerrainSamplers.Stage.VERTEX, 0,
+                DebugFeatures::white);
+        ShaderSnippets.register(feature, ShaderHook.VERT_DECL, ShaderSnippets.PASS_ALL, 0, "uniform sampler2D atmos_DebugVert;\n");
+        ShaderSnippets.register(feature, ShaderHook.VERT_POSITION, ShaderSnippets.PASS_ALL, 0,
+                "    position.y += (texelFetch(atmos_DebugVert, ivec2(0), 0).r - 1.0) * 4.0;\n");
+        ShaderSnippets.register(feature, ShaderHook.FRAG_DECL, ShaderSnippets.PASS_ALL, 0, "uniform sampler2D atmos_DebugFrag;\n");
+        ShaderSnippets.register(feature, ShaderHook.FRAG_PRE_FOG, ShaderSnippets.PASS_ALL, 0,
+                "    diffuseColor.rgb *= texelFetch(atmos_DebugFrag, ivec2(0), 0).rgb;\n");
+        com.solarbiscuit.atmosphera.lib.gpu.PostPasses.register(feature,
+                com.solarbiscuit.atmosphera.lib.gpu.PostPasses.Stage.BEFORE_TRANSLUCENT, 0, "debug_before_translucent", context -> {
+                    com.solarbiscuit.atmosphera.lib.gpu.GlStateSnapshot saved = com.solarbiscuit.atmosphera.lib.gpu.GlStateSnapshot.save();
+                    try {
+                        if (stageFbo == 0) {
+                            var target = com.solarbiscuit.atmosphera.lib.gpu.RenderTargets.create("debug stage", 1 << 20,
+                                    org.lwjgl.opengl.GL11C.GL_RGBA8, false);
+                            if (target.ensure(com.solarbiscuit.atmosphera.lib.gpu.RenderTargets.scene())) {
+                                stageFbo = 1;
+                                stageTarget = target;
+                            }
+                        }
+                        if (stageTarget != null) {
+                            stageTarget.bindWrite();
+                            // glClearBuffer leaves the clear colour state alone.
+                            org.lwjgl.opengl.GL30C.glClearBufferfv(org.lwjgl.opengl.GL11C.GL_COLOR, 0, STAGE_CLEAR);
+                        }
+                    } finally {
+                        saved.restore();
+                    }
+                });
+    }
+
+    private static com.solarbiscuit.atmosphera.lib.gpu.RenderTargets.Target stageTarget;
+    private static final float[] STAGE_CLEAR = {0.2f, 0.4f, 0.6f, 1f};
 
     private static void leaves() {
         BitField leaf = VertexBits.material(AtmospheraLib.MOD_ID, "debug_leaf", 1);
