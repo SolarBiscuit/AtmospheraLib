@@ -27,6 +27,9 @@ public final class SceneTextures {
     public static final int DEPTH_UNIT = 12;
     public static final int COLOR_UNIT = 13;
 
+    /** Copies between forced re-reads of the source attachment format (about 10 s at 60 fps). */
+    private static final int FORMAT_RECHECK = 600;
+
     private static final Copy DEPTH = new Copy("scene depth", true);
     private static final Copy COLOR = new Copy("scene colour", false);
 
@@ -101,6 +104,13 @@ public final class SceneTextures {
         private boolean broken;
         private boolean verifyNext;
         private boolean copyTexture;
+        // Source format cache (0.3.22): the format is read only when the source framebuffer or its size changes,
+        // or every FORMAT_RECHECK copies as a safety net, instead of 3-4 glGet calls per frame.
+        private int formatSource;
+        private int formatWidth;
+        private int formatHeight;
+        private int formatCached;
+        private int formatAge;
 
         Copy(String label, boolean depth) {
             this.label = label;
@@ -112,7 +122,15 @@ public final class SceneTextures {
             if (broken) {
                 return;
             }
-            int format = sourceFormat();
+            if (source != formatSource || w != formatWidth || h != formatHeight || formatCached == 0
+                    || ++formatAge >= FORMAT_RECHECK) {
+                formatCached = sourceFormat();
+                formatSource = source;
+                formatWidth = w;
+                formatHeight = h;
+                formatAge = 0;
+            }
+            int format = formatCached;
             if (format == 0) {
                 fail("could not read the source attachment format of framebuffer " + source);
                 return;
@@ -233,9 +251,14 @@ public final class SceneTextures {
             width = w;
             height = h;
             internalFormat = format;
+            GpuResources.textureBytes(texture, (long) w * h * bytesPerTexel(format));
             verifyNext = true;
             AtmospheraLib.LOGGER.debug("{} copy allocated: {}x{}, format 0x{}.", label, w, h, Integer.toHexString(format));
             return true;
+        }
+
+        private static int bytesPerTexel(int format) {
+            return format == GL30C.GL_DEPTH32F_STENCIL8 ? 8 : format == GL30C.GL_DEPTH_COMPONENT16 ? 2 : 4;
         }
 
         void release() {

@@ -131,12 +131,20 @@ public final class AtmosClient {
         }
     }
 
+    /** One reused context per stage (0.3.22: no matrices allocated per frame). */
+    private static final PostPasses.Context[] POST_CONTEXTS = new PostPasses.Context[PostPasses.Stage.values().length];
+
+    static {
+        for (int i = 0; i < POST_CONTEXTS.length; i++) {
+            POST_CONTEXTS[i] = new PostPasses.Context();
+        }
+    }
+
     private static void runPosts(PostPasses.Stage stage, RenderLevelStageEvent event) {
-        if (PostPasses.count() > 0) {
-            org.joml.Matrix4f inverse = new org.joml.Matrix4f(event.getProjectionMatrix())
-                    .mul(event.getPoseStack().last().pose()).invert();
-            PostPasses.run(stage, new PostPasses.Context(event.getPoseStack(), event.getProjectionMatrix(),
-                    event.getPartialTick(), inverse, event.getCamera().getPosition()));
+        if (PostPasses.count() > 0 && PostPasses.anyActive(stage)) {
+            PostPasses.Context context = POST_CONTEXTS[stage.ordinal()].set(event.getPoseStack(),
+                    event.getProjectionMatrix(), event.getPartialTick(), event.getCamera().getPosition());
+            PostPasses.run(stage, context);
         }
     }
 

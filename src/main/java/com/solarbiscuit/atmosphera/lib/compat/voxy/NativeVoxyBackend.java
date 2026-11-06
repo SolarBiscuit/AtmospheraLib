@@ -23,16 +23,17 @@ final class NativeVoxyBackend implements VoxyBridge.Backend {
     private final Class<?> api;
     //Material-only mode (text-patch backend on a NeoVoxy build): fills BlockModel._pad[0], adds no GLSL
     private boolean materialOnly;
-    private final Method fadeStart;
-    private final Method fadeEnd;
-    private final Method vanillaDistance;
+    // Per-frame reads go through MethodHandles typed to ()float (0.3.22): no Method.invoke, no boxing.
+    private final java.lang.invoke.MethodHandle fadeStart;
+    private final java.lang.invoke.MethodHandle fadeEnd;
+    private final java.lang.invoke.MethodHandle vanillaDistance;
     private final Method shaderRebuild;
 
     private NativeVoxyBackend(Class<?> api) throws ReflectiveOperationException {
         this.api = api;
-        this.fadeStart = api.getMethod("boundaryFadeStart");
-        this.fadeEnd = api.getMethod("boundaryFadeEnd");
-        this.vanillaDistance = api.getMethod("vanillaRenderDistanceBlocks");
+        this.fadeStart = floatGetter(api.getMethod("boundaryFadeStart"));
+        this.fadeEnd = floatGetter(api.getMethod("boundaryFadeEnd"));
+        this.vanillaDistance = floatGetter(api.getMethod("vanillaRenderDistanceBlocks"));
         this.shaderRebuild = api.getMethod("requestShaderRebuild", String.class);
     }
 
@@ -168,10 +169,30 @@ final class NativeVoxyBackend implements VoxyBridge.Backend {
         return call(this.vanillaDistance);
     }
 
-    private static float call(Method method) {
+    /** A ()float handle for a public static getter; falls back to reflection if the handle cannot be made. */
+    private static java.lang.invoke.MethodHandle floatGetter(Method method) {
         try {
-            return (float) method.invoke(null);
+            return java.lang.invoke.MethodHandles.publicLookup().unreflect(method)
+                    .asType(java.lang.invoke.MethodType.methodType(float.class));
         } catch (ReflectiveOperationException | RuntimeException e) {
+            AtmospheraLib.LOGGER.debug("NeoVoxy getter {} through reflection: {}", method.getName(), e.toString());
+            try {
+                java.lang.invoke.MethodHandle invoke = java.lang.invoke.MethodHandles.publicLookup()
+                        .findVirtual(Method.class, "invoke", java.lang.invoke.MethodType.methodType(Object.class,
+                                Object.class, Object[].class))
+                        .bindTo(method);
+                return java.lang.invoke.MethodHandles.insertArguments(invoke, 0, null, new Object[0])
+                        .asType(java.lang.invoke.MethodType.methodType(float.class));
+            } catch (ReflectiveOperationException e2) {
+                return java.lang.invoke.MethodHandles.constant(float.class, 0f);
+            }
+        }
+    }
+
+    private static float call(java.lang.invoke.MethodHandle handle) {
+        try {
+            return (float) handle.invokeExact();
+        } catch (Throwable e) {
             return 0f;
         }
     }

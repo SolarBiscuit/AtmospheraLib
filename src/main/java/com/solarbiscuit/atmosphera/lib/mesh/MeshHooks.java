@@ -41,6 +41,20 @@ public final class MeshHooks {
         return List.copyOf(FLUID);
     }
 
+    /**
+     * The block state at {@code (x, y, z)} for a mesh hook, from the {@code level} the hook was given: Xenon's
+     * int-coordinate {@code WorldSlice.getBlockState(x, y, z)} when it is a slice (no BlockPos, no ThreadLocal),
+     * the generic path otherwise. Allocation-free.
+     * <p>
+     * A slice holds the meshed section plus a 2-block margin: hooks may read at most 2 blocks outside the block's own
+     * section (in practice: the 6 direct neighbours, or a short column walk within the margin). Reads further out are
+     * not guaranteed to see the world.
+     */
+    public static net.minecraft.world.level.block.state.BlockState blockAt(net.minecraft.world.level.BlockGetter level,
+                                                                       int x, int y, int z) {
+        return XenonReads.blockAt(level, x, y, z);
+    }
+
     private static void requireMesh(AtmosFeature feature) {
         if (!feature.uses(AtmosFeature.Uses.MESH_BITS) && !feature.uses(AtmosFeature.Uses.LIGHT_BITS)) {
             throw new IllegalArgumentException(feature.id() + " registers a mesh hook but does not declare Uses.MESH_BITS");

@@ -29,14 +29,51 @@ public final class PostPasses {
     }
 
     /**
-     * What a pass gets: the matrices of the frame being drawn.
-     *
-     * @param invViewProjection inverse of {@code projection * view}: clip space to camera-relative world space
-     *                          (world position = camera + result), for reconstructing positions from depth (0.4.0)
-     * @param camera            camera position in world space (0.4.0)
+     * What a pass gets: the matrices of the frame being drawn. One instance per stage, refilled every frame (0.3.22:
+     * no allocation per frame), so a pass must not keep it, or its matrices, past {@link PostPass#render}.
+     * The accessors are the same as the record this was before 0.3.22.
      */
-    public record Context(PoseStack poseStack, Matrix4f projection, float partialTick, Matrix4f invViewProjection,
-                          net.minecraft.world.phys.Vec3 camera) {
+    public static final class Context {
+        private PoseStack poseStack;
+        private final Matrix4f projection = new Matrix4f();
+        private float partialTick;
+        private final Matrix4f invViewProjection = new Matrix4f();
+        private net.minecraft.world.phys.Vec3 camera;
+
+        /** Refills this context; computes the inverse view-projection in place. Render thread. */
+        public Context set(PoseStack poseStack, Matrix4f projection, float partialTick, net.minecraft.world.phys.Vec3 camera) {
+            this.poseStack = poseStack;
+            this.projection.set(projection);
+            this.partialTick = partialTick;
+            this.invViewProjection.set(projection).mul(poseStack.last().pose()).invert();
+            this.camera = camera;
+            return this;
+        }
+
+        public PoseStack poseStack() {
+            return poseStack;
+        }
+
+        public Matrix4f projection() {
+            return projection;
+        }
+
+        public float partialTick() {
+            return partialTick;
+        }
+
+        /**
+         * Inverse of {@code projection * view}: clip space to camera-relative world space (world position = camera +
+         * result), for reconstructing positions from depth (0.4.0).
+         */
+        public Matrix4f invViewProjection() {
+            return invViewProjection;
+        }
+
+        /** Camera position in world space (0.4.0). */
+        public net.minecraft.world.phys.Vec3 camera() {
+            return camera;
+        }
     }
 
     private record Entry(AtmosFeature feature, Stage stage, int order, String name, PostPass pass) {
@@ -61,6 +98,16 @@ public final class PostPasses {
 
     public static int count() {
         return frozen.size();
+    }
+
+    /** Whether any pass of this stage belongs to an active feature (skip building the context otherwise). */
+    public static boolean anyActive(Stage stage) {
+        for (Entry entry : frozen) {
+            if (entry.stage() == stage && entry.feature().isActive()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public static void run(Stage stage, Context context) {

@@ -107,12 +107,26 @@ public final class GpuTimers {
         if (lines.isEmpty()) {
             return;
         }
+        // The file write happens on one background thread (0.3.22), not on the render thread.
+        String rows = lines.toString();
+        WRITER.execute(() -> append(rows));
+    }
+
+    /** One daemon thread for the CSV, so rows keep their order. */
+    private static final java.util.concurrent.ExecutorService WRITER =
+            java.util.concurrent.Executors.newSingleThreadExecutor(r -> {
+                Thread t = new Thread(r, "atmospheralib-gpu-csv");
+                t.setDaemon(true);
+                return t;
+            });
+
+    private static void append(String rows) {
         try {
             Path file = FMLPaths.GAMEDIR.get().resolve("logs").resolve("atmospheralib-gpu.csv");
             if (!Files.exists(file)) {
                 Files.writeString(file, "time,section,frames,gpu_ms_avg\n");
             }
-            Files.writeString(file, lines, StandardOpenOption.APPEND);
+            Files.writeString(file, rows, StandardOpenOption.APPEND);
         } catch (IOException e) {
             AtmospheraLib.LOGGER.debug("Could not write the GPU timer CSV: {}", e.toString());
         }

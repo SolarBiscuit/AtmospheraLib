@@ -72,6 +72,12 @@ public final class ShaderPackState {
         }
     }
 
+    // Options of the last read pack, kept until the pack or its file's modification time changes (0.3.22: the
+    // probe runs every second while a pack is active and used to re-read and re-parse the file each time).
+    private static String cachedName;
+    private static long cachedModified = Long.MIN_VALUE;
+    private static Map<String, String> cachedOptions = Map.of();
+
     private static Map<String, String> readOptions(String name) {
         if (name == null || packsDirectory == null) {
             return Map.of();
@@ -81,11 +87,20 @@ public final class ShaderPackState {
             if (!Files.exists(file)) {
                 return Map.of();
             }
+            long modified = Files.getLastModifiedTime(file).toMillis();
+            if (name.equals(cachedName) && modified == cachedModified) {
+                return cachedOptions;
+            }
             Properties props = new Properties();
             try (Reader reader = Files.newBufferedReader(file)) {
                 props.load(reader);
             }
-            return props.stringPropertyNames().stream().collect(Collectors.toUnmodifiableMap(k -> k, props::getProperty));
+            Map<String, String> options = props.stringPropertyNames().stream()
+                    .collect(Collectors.toUnmodifiableMap(k -> k, props::getProperty));
+            cachedName = name;
+            cachedModified = modified;
+            cachedOptions = options;
+            return options;
         } catch (IOException | ReflectiveOperationException | RuntimeException e) {
             return Map.of();
         }

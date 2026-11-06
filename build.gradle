@@ -50,6 +50,11 @@ mixin {
     config "${mod_id}.mixins.json"
 }
 
+sourceSets {
+    // Empty copies of the Fabric API interfaces Xenon's WorldSlice implements, so javac can resolve it. Never packaged.
+    stubs
+}
+
 repositories {
     mavenCentral()
 }
@@ -59,6 +64,7 @@ dependencies {
     annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
     // Xenon 0.3.31 (Embeddium fork, Sodium packages). Compile only; never bundled.
     compileOnly files('libs/xenon-0.3.31+mc1.20.1.jar')
+    compileOnly sourceSets.stubs.output
 }
 
 tasks.named('processResources', ProcessResources).configure {

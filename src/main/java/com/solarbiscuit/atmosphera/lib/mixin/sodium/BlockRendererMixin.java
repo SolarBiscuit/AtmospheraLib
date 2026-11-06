@@ -48,6 +48,8 @@ public abstract class BlockRendererMixin {
     @Unique private int atmos$materialBits;
     @Unique private int atmos$lightBits;
     @Unique private boolean atmos$perVertex;
+    /** Bit i: light hook i asked for per-vertex bits for this block (asked once per block, 0.3.22). */
+    @Unique private long atmos$perVertexMask;
 
     @Inject(method = "renderModel", at = @At("HEAD"))
     private void atmos$begin(BlockRenderContext ctx, ChunkBuildBuffers buffers, CallbackInfo ci) {
@@ -88,6 +90,7 @@ public abstract class BlockRendererMixin {
         int material = 0;
         int light = 0;
         boolean perVertex = false;
+        long perVertexMask = 0L;
         if (hooks.length != 0) {
             BlockRenderContext ctx = this.atmos$ctx;
             BlockState blockState = ctx.state();
@@ -96,9 +99,14 @@ public abstract class BlockRendererMixin {
             for (BlockMeshHook hook : hooks) {
                 material |= hook.materialBits(blockState, pos, level);
             }
-            for (BlockMeshHook hook : lightHooks) {
+            for (int i = 0; i < lightHooks.length; i++) {
+                BlockMeshHook hook = lightHooks[i];
                 light |= hook.lightBits(blockState, pos, level);
-                perVertex |= hook.perVertex(blockState);
+                if (hook.perVertex(blockState)) {
+                    perVertex = true;
+                    // Hooks past the 64th are asked per vertex, as before (no feature set comes near that).
+                    perVertexMask |= i < 64 ? 1L << i : 0L;
+                }
             }
             this.atmos$state = blockState;
         }
@@ -106,6 +114,7 @@ public abstract class BlockRendererMixin {
         this.atmos$materialBits = material;
         this.atmos$lightBits = light;
         this.atmos$perVertex = perVertex;
+        this.atmos$perVertexMask = perVertexMask;
     }
 
     @Inject(method = "writeGeometry", at = @At(value = "INVOKE",
@@ -117,11 +126,14 @@ public abstract class BlockRendererMixin {
             return;
         }
         Vector3fc origin = ctx.origin();
+        BlockMeshHook[] hooks = this.atmos$hooks;
+        long mask = this.atmos$perVertexMask;
         for (ChunkVertexEncoder.Vertex vertex : this.vertices) {
             int bits = blockBits;
             if (this.atmos$perVertex) {
-                for (BlockMeshHook hook : this.atmos$hooks) {
-                    if (hook.perVertex(this.atmos$state)) {
+                for (int i = 0; i < hooks.length; i++) {
+                    BlockMeshHook hook = hooks[i];
+                    if (i < 64 ? (mask & 1L << i) != 0L : hook.perVertex(this.atmos$state)) {
                         bits = hook.vertexLightBits(this.atmos$state, bits,
                                 vertex.x - origin.x(), vertex.y - origin.y(), vertex.z - origin.z());
                     }

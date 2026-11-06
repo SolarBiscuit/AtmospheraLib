@@ -19,6 +19,8 @@ import java.nio.ByteBuffer;
  * ... draw ...
  * saved.restore();
  * </pre>
+ * Snapshots are pooled (0.3.22): {@link #restore()} returns the instance, so do not use it after restoring. Nested
+ * saves are fine. A snapshot never restored is simply not reused.
  */
 public final class GlStateSnapshot {
     private int drawFramebuffer;
@@ -39,12 +41,18 @@ public final class GlStateSnapshot {
     private final boolean[] colorMask = new boolean[4];
     private final int[] scissorBox = new int[4];
 
+    /** Free snapshots (render thread only). */
+    private static GlStateSnapshot[] pool = new GlStateSnapshot[4];
+    private static int pooled;
+    private boolean inUse;
+
     private GlStateSnapshot() {
     }
 
     /** Saves, then sets a neutral state: no depth test or writes, no cull/scissor/stencil/blend, full colour mask. */
     public static GlStateSnapshot save() {
-        GlStateSnapshot s = new GlStateSnapshot();
+        GlStateSnapshot s = pooled > 0 ? pool[--pooled] : new GlStateSnapshot();
+        s.inUse = true;
         s.drawFramebuffer = GL11C.glGetInteger(GL30C.GL_DRAW_FRAMEBUFFER_BINDING);
         s.readFramebuffer = GL11C.glGetInteger(GL30C.GL_READ_FRAMEBUFFER_BINDING);
         s.program = GL11C.glGetInteger(GL20C.GL_CURRENT_PROGRAM);
@@ -93,6 +101,13 @@ public final class GlStateSnapshot {
         GL11C.glScissor(scissorBox[0], scissorBox[1], scissorBox[2], scissorBox[3]);
         set(GL11C.GL_STENCIL_TEST, stencil);
         GL11C.glColorMask(colorMask[0], colorMask[1], colorMask[2], colorMask[3]);
+        if (inUse) {
+            inUse = false;
+            if (pooled == pool.length) {
+                pool = java.util.Arrays.copyOf(pool, pooled * 2);
+            }
+            pool[pooled++] = this;
+        }
     }
 
     private static void set(int cap, boolean on) {

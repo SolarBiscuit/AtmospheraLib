@@ -149,7 +149,9 @@ public final class FrameUniforms {
         for (Slot slot : frozen) {
             out.append("    vec4 ").append(slot.name()).append("; // ").append(slot.comment()).append('\n');
         }
-        return out.append("};\n").toString();
+        // atmos_Time.x and .y wrap at 3600 s: a rate applied to them must be a whole number of cycles per hour,
+        // n * ATMOS_HOUR_CYCLE (2 pi / 3600), or the animation jumps at the wrap (0.3.22).
+        return out.append("};\n#ifndef ATMOS_HOUR_CYCLE\n#define ATMOS_HOUR_CYCLE 0.0017453293\n#endif\n").toString();
     }
 
     /** Binding point the AtmosFrame block of every patched program is attached to. Render thread. */
