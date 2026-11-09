@@ -27,7 +27,14 @@ public final class PostPasses {
         /** After translucent terrain (water, glass), before particles and weather. */
         AFTER_TRANSLUCENT,
         /** After particles and weather, before the hand and the GUI. */
-        AFTER_WEATHER
+        AFTER_WEATHER,
+        /**
+         * After the hand, before vanilla's post effects (spectator mob views) and the GUI (0.6.4): for effects on the
+         * whole picture (bloom composite, lens flare, colour grading, vignette). The world's depth is gone here (the
+         * hand pass clears it), so read depth in an earlier stage and keep the result. The context carries this
+         * frame's world matrices and camera, taken at AFTER_WEATHER; the stage is skipped in frames without them.
+         */
+        FINAL
     }
 
     @FunctionalInterface

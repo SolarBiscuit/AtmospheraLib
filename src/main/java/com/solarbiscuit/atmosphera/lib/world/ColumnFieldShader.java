@@ -78,7 +78,13 @@ public final class ColumnFieldShader {
         out[3] = (float) (ColumnField.centreChunkZ() * 16.0 - camera.z);
     }
 
-    private static final String GLSL = """
+    /**
+     * The accessors above as GLSL (0.6.3: public, for post programs). A post program that includes it (after the frame
+     * block, which holds {@code atmos_Column} and {@code atmos_CameraPos}) binds {@link ColumnField#texture()} to a
+     * unit of its own, sets the sampler {@code atmos_ColumnField} to it, and keeps the field running with
+     * {@link ColumnField#use}. The guard makes it safe to include twice.
+     */
+    public static final String GLSL = """
             #ifndef ATMOS_COLUMN_FIELD_DECL
             #define ATMOS_COLUMN_FIELD_DECL
             #define ATMOS_COLUMN_FIELD

@@ -11,7 +11,7 @@ import java.util.Properties;
 /**
  * Developer switches, read once at startup from system properties ({@code -Datmospheralib.debugFeatures=true},
  * {@code -Datmospheralib.statusEvery=N}) or from {@code config/SolConfig/atmosphera/atmospheralib-dev.properties}
- * ({@code debug_features}, {@code status_every}, {@code clock_log}). The file exists for launchers that keep JVM arguments in memory.
+ * ({@code debug_features}, {@code status_every}, {@code clock_log}, {@code shot_file}, {@code hide_gui}, ...). The file exists for launchers that keep JVM arguments in memory.
  */
 public final class DevFlags {
     public static final boolean DEBUG_FEATURES;
@@ -23,6 +23,11 @@ public final class DevFlags {
      * taken as a request (deleted, then a screenshot saved as with F2). For tools that cannot focus the window.
      */
     public static final boolean SHOT_FILE;
+    /**
+     * Test screenshots without the HUD ({@code hide_gui=true}, 0.6.2): the GUI is hidden (as with F1) on every tick in
+     * a world, which also hides minimap overlays and the hand. For shots of the screen centre (sun, beams).
+     */
+    public static final boolean HIDE_GUI;
     /** Caps the texture units the lib may assign ({@code max_units}, 0 = the driver's), to test the fallback (0.4.0). */
     public static final int MAX_UNITS;
     /**
@@ -56,6 +61,7 @@ public final class DevFlags {
         STATUS_EVERY = every;
         CLOCK_LOG = Boolean.parseBoolean(file.getProperty("clock_log", "false").trim());
         SHOT_FILE = Boolean.parseBoolean(file.getProperty("shot_file", "false").trim());
+        HIDE_GUI = Boolean.parseBoolean(file.getProperty("hide_gui", "false").trim());
         int units;
         try {
             units = Integer.parseInt(file.getProperty("max_units", "0").trim());

@@ -24,6 +24,8 @@ public enum Capability {
     ATMOSPHERIC_FOG,
     /** Screen-space or planar reflections. */
     REFLECTIONS,
+    /** Bloom, lens flares or colour grading of the whole picture (0.6.4: Lumis lens effects). */
+    POST_PROCESS,
     /** Lib-provided world data for terrain shaders (the column field); never provided by anything else. */
     WORLD_DATA,
     /** Developer/debug visuals; never provided by anything else. */

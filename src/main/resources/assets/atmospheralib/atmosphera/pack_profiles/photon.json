@@ -20,6 +20,7 @@
     "DIRECTIONAL_LIGHT": { "always": true },
     "VOLUMETRIC_LIGHT": {"any": [{"define": "CREPUSCULAR_RAYS", "is": "defined"}, {"define": "VL", "is": "defined"}]},
     "ATMOSPHERIC_FOG": { "always": true },
-    "REFLECTIONS": { "always": true }
+    "REFLECTIONS": { "always": true },
+    "POST_PROCESS": { "always": true }
   }
 }

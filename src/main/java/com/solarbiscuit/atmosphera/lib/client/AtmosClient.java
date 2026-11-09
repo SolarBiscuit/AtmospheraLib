@@ -112,6 +112,12 @@ public final class AtmosClient {
             if (DevFlags.SHOT_FILE) {
                 shotRequest();
             }
+            if (DevFlags.HIDE_GUI) {
+                net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+                if (mc.level != null) {
+                    mc.options.hideGui = true;
+                }
+            }
         }
     }
 
@@ -144,7 +150,32 @@ public final class AtmosClient {
         } else if (stage == RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS) {
             runPosts(PostPasses.Stage.AFTER_TRANSLUCENT, event);
         } else if (stage == RenderLevelStageEvent.Stage.AFTER_WEATHER) {
+            // The world matrices for the FINAL stage, after the hand (0.6.4): copied, no allocation.
+            FINAL_PROJECTION.set(event.getProjectionMatrix());
+            FINAL_VIEW.set(event.getPoseStack().last().pose());
+            finalCamera = event.getCamera().getPosition();
+            finalPartial = event.getPartialTick();
+            finalFrame = frame;
             runPosts(PostPasses.Stage.AFTER_WEATHER, event);
+        }
+    }
+
+    private static final org.joml.Matrix4f FINAL_PROJECTION = new org.joml.Matrix4f();
+    private static final org.joml.Matrix4f FINAL_VIEW = new org.joml.Matrix4f();
+    private static net.minecraft.world.phys.Vec3 finalCamera;
+    private static float finalPartial;
+    private static long finalFrame = -1;
+
+    /**
+     * The {@link PostPasses.Stage#FINAL} stage (0.6.4), from the end of {@code GameRenderer.renderLevel}: the hand is
+     * drawn, vanilla's post effects and the GUI are not. Only in frames whose AFTER_WEATHER stage ran.
+     */
+    public static void runFinal() {
+        PostPasses.Stage stage = PostPasses.Stage.FINAL;
+        if (finalFrame == frame && finalCamera != null && PostPasses.count() > 0 && PostPasses.anyActive(stage)) {
+            PostPasses.Context context = POST_CONTEXTS[stage.ordinal()].set(FINAL_PROJECTION, FINAL_VIEW, finalPartial,
+                    finalCamera);
+            PostPasses.run(stage, context);
         }
     }
 

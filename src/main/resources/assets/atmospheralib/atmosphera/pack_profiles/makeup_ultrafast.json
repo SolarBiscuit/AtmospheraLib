@@ -19,6 +19,7 @@
     "DIRECTIONAL_LIGHT": { "always": true },
     "VOLUMETRIC_LIGHT": {"define": "VOL_LIGHT", "gt": 0},
     "ATMOSPHERIC_FOG": { "always": true },
-    "REFLECTIONS": { "always": true }
+    "REFLECTIONS": { "always": true },
+    "POST_PROCESS": { "always": true }
   }
 }

@@ -20,6 +20,7 @@
     "DIRECTIONAL_LIGHT": { "always": true },
     "VOLUMETRIC_LIGHT": {"all": [{"define": "LIGHTSHAFT_QUALI_DEFINE", "gt": 0}, {"define": "SHADOW_QUALITY", "gt": -1}]},
     "ATMOSPHERIC_FOG": { "always": true },
-    "REFLECTIONS": { "always": true }
+    "REFLECTIONS": { "always": true },
+    "POST_PROCESS": { "always": true }
   }
 }
