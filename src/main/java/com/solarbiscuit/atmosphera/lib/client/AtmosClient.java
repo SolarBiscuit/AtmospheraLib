@@ -52,6 +52,10 @@ public final class AtmosClient {
                 AtmosClock.update(net.minecraft.client.Minecraft.getInstance());
             }
         });
+        // AFTER_SKY at high priority (0.7.2): the frame starts and the SKY stage runs before other mods' AFTER_SKY work
+        // (Atmospherics copies the sky there for its horizon fade, so it copies the sky drawn here).
+        MinecraftForge.EVENT_BUS.addListener(net.minecraftforge.eventbus.api.EventPriority.HIGH, false,
+                RenderLevelStageEvent.class, AtmosClient::skyStage);
         MinecraftForge.EVENT_BUS.addListener(AtmosClient::renderStage);
         MinecraftForge.EVENT_BUS.addListener((RegisterClientCommandsEvent e) -> StatusCommand.register(e.getDispatcher()));
         MinecraftForge.EVENT_BUS.addListener(AtmosClient::debugText);
@@ -137,19 +141,31 @@ public final class AtmosClient {
         }
     }
 
+    private static void skyStage(RenderLevelStageEvent event) {
+        if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_SKY) {
+            return;
+        }
+        startFrame();
+        runPosts(PostPasses.Stage.SKY, event);
+    }
+
+    /** The frame's start, at AFTER_SKY (moved from renderStage in 0.7.2; same order of work). */
+    private static void startFrame() {
+        frame++;
+        GpuTimers.newFrame();
+        com.solarbiscuit.atmosphera.lib.gpu.AtmosGl.newFrame();
+        com.solarbiscuit.atmosphera.lib.gpu.TerrainSamplers.resolve();
+        com.solarbiscuit.atmosphera.lib.world.ColumnField.frame(frame);
+        if (com.solarbiscuit.atmosphera.lib.compat.voxy.VoxyBridge.isActive()) {
+            //Voxy draws its LODs with the AtmosFrame block too, also in frames where no Xenon program was patched
+            FrameUniforms.update(frame);
+        }
+    }
+
     private static void renderStage(RenderLevelStageEvent event) {
         RenderLevelStageEvent.Stage stage = event.getStage();
-        if (stage == RenderLevelStageEvent.Stage.AFTER_SKY) {
-            frame++;
-            GpuTimers.newFrame();
-            com.solarbiscuit.atmosphera.lib.gpu.AtmosGl.newFrame();
-            com.solarbiscuit.atmosphera.lib.gpu.TerrainSamplers.resolve();
-            com.solarbiscuit.atmosphera.lib.world.ColumnField.frame(frame);
-            if (com.solarbiscuit.atmosphera.lib.compat.voxy.VoxyBridge.isActive()) {
-                //Voxy draws its LODs with the AtmosFrame block too, also in frames where no Xenon program was patched
-                FrameUniforms.update(frame);
-            }
-        } else if (stage == RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS) {
+        // AFTER_SKY (the frame's start and the SKY stage) is handled by skyStage, at high priority.
+        if (stage == RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS) {
             runPosts(PostPasses.Stage.AFTER_TRANSLUCENT, event);
         } else if (stage == RenderLevelStageEvent.Stage.AFTER_PARTICLES) {
             runPosts(PostPasses.Stage.CLOUDS, event);

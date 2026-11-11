@@ -18,6 +18,12 @@ import java.util.List;
 public final class PostPasses {
     public enum Stage {
         /**
+         * The sky (0.7.2): Forge's AFTER_SKY, run before other mods' AFTER_SKY listeners (high priority). Nothing but
+         * the sky is drawn yet, so a full-screen pass here becomes the sky behind everything. The frame block holds
+         * last frame's values until the terrain pass writes this frame's; call {@link FrameUniforms#update} first.
+         */
+        SKY,
+        /**
          * Before translucent terrain, right after the scene copies (0.4.0): opaque and cutout terrain and entities are
          * drawn, water and glass are not. For data the translucent pass samples (Torrente's planar reflections).
          * The scene copies are valid here when an active feature declares them. Runs inside Xenon's terrain

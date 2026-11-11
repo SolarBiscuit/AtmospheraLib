@@ -334,6 +334,11 @@ public final class FrameUniforms {
         if (level == null) {
             return;
         }
+        // 0.7.2: the drawn sky's colour when a sky mod draws it (world.SkySource).
+        if (com.solarbiscuit.atmosphera.lib.world.SkySource.skyColor(out)) {
+            out[3] = 1f;
+            return;
+        }
         Vec3 sky = level.getSkyColor(Minecraft.getInstance().gameRenderer.getMainCamera().getPosition(), partialTick());
         out[0] = (float) sky.x;
         out[1] = (float) sky.y;
