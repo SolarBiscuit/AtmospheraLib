@@ -70,7 +70,34 @@ public final class VoxyBridge {
         boolean wanted();
     }
 
+    /**
+     * A feature mod's handler for NeoVoxy's LOD column tops (API 4, NeoVoxy 1.44.1+): per built LOD section, the highest
+     * shadow-casting and water voxel of each of its 32x32 columns. Register with {@link #setLodColumns}.
+     */
+    public interface LodColumns {
+        /** {@code top}/{@code water}: voxel y in the section (0-31) or -1, index {@code z << 5 | x}. Mesh threads; copy. */
+        void sectionColumns(int lodLevel, int sectionX, int sectionY, int sectionZ, short[] top, short[] water);
+
+        /** Whether reports are wanted now. Any thread. */
+        boolean wanted();
+    }
+
+    /**
+     * A feature mod's fog for NeoVoxy's LOD composite (API 4): GLSL statements inside
+     * {@code void voxyExt_fog(inout vec3 colour, vec3 position, float dist, inout float builtIn)} reading
+     * {@code voxyExt_fogData[8]}, and those 8 vec4 per frame. Register with {@link #setLodFog} during mod construction
+     * (the composite shaders are built with it).
+     */
+    public interface LodFog {
+        String glsl();
+
+        /** 32 floats, zeroed before the call. Render thread. */
+        void data(float[] out);
+    }
+
     private static volatile LodEmitters lodEmitters;
+    private static volatile LodColumns lodColumns;
+    private static volatile LodFog lodFog;
     /** NeoVoxy's LOD extension API version (0 when there is none). */
     static volatile int apiVersion;
     private static final java.util.List<Runnable> BEFORE_DRAW = new java.util.concurrent.CopyOnWriteArrayList<>();
@@ -82,6 +109,48 @@ public final class VoxyBridge {
     /** NeoVoxy reports LOD emitters (API 3) and a handler wants them. */
     public static boolean lodEmittersAvailable() {
         return apiVersion >= 3 && backend instanceof NativeVoxyBackend;
+    }
+
+    public static void setLodColumns(LodColumns handler) {
+        lodColumns = handler;
+    }
+
+    /** NeoVoxy reports LOD column tops (API 4). */
+    public static boolean lodColumnsAvailable() {
+        return apiVersion >= 4 && backend instanceof NativeVoxyBackend;
+    }
+
+    static boolean needsSectionColumns() {
+        LodColumns handler = lodColumns;
+        return handler != null && apiVersion >= 4 && handler.wanted();
+    }
+
+    static void sectionColumns(int lodLevel, int x, int y, int z, short[] top, short[] water) {
+        LodColumns handler = lodColumns;
+        if (handler != null) {
+            handler.sectionColumns(lodLevel, x, y, z, top, water);
+        }
+    }
+
+    public static void setLodFog(LodFog handler) {
+        lodFog = handler;
+    }
+
+    /** NeoVoxy's LOD composite runs extension fog (API 4). */
+    public static boolean lodFogAvailable() {
+        return apiVersion >= 4 && backend instanceof NativeVoxyBackend;
+    }
+
+    static String fogGlsl() {
+        LodFog handler = lodFog;
+        return handler == null || apiVersion < 4 ? "" : handler.glsl();
+    }
+
+    static void fogData(float[] out) {
+        LodFog handler = lodFog;
+        if (handler != null) {
+            handler.data(out);
+        }
     }
 
     static boolean needsSectionEmitters() {

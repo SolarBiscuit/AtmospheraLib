@@ -5,7 +5,7 @@ import com.solarbiscuit.atmosphera.lib.options.AtmosConfig;
 import com.solarbiscuit.atmosphera.lib.options.AtmosOption;
 import com.solarbiscuit.atmosphera.lib.options.ChangeTier;
 
-/** AtmospheraLib's own settings ({@code config/SolConfig/atmosphera/atmospheralib-client.toml}). */
+/** AtmospheraLib's own settings ({@code config/Atmosphera/atmospheralib-client.toml}). */
 public final class LibConfig {
     /** Developer features that exercise the whole API; only declared when {@link DevFlags#DEBUG_FEATURES} is set. */
     public static final boolean DEBUG_FEATURES = DevFlags.DEBUG_FEATURES;

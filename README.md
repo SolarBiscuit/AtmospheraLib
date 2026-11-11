@@ -82,7 +82,7 @@ Dates are not promised. Each feature release is a minor version (0.X.0). Version
 
 1. Place `atmospheralib-<version>-mc1.20.1-forge.jar` in `mods`, next to an Embeddium-based terrain renderer.
 2. Install the mods that use it: Lumis, Torrente and Gale.
-3. Options are in the Atmosphera tab of Video Settings, and in `config/SolConfig/atmosphera/`.
+3. Options are in the Atmosphera tab of Video Settings, and in `config/Atmosphera/` (before AtmospheraLib 0.6.7: `config/SolConfig/atmosphera/`, moved across automatically).
 
 ## Building
 

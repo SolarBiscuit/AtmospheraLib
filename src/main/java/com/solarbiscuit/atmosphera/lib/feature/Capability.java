@@ -26,6 +26,12 @@ public enum Capability {
     REFLECTIONS,
     /** Bloom, lens flares or colour grading of the whole picture (0.6.4: Lumis lens effects). */
     POST_PROCESS,
+    /** Clouds drawn by something other than vanilla (shaderpack clouds, Stratos) (0.7.0). */
+    CLOUDS,
+    /** The sky itself: dome colour, sun, moon and stars (shaderpack skies, Stratos 0.3) (0.7.0; reserved). */
+    SKY,
+    /** Shadows of clouds on the ground (shaderpack cloud shadows, Stratos 0.2) (0.7.0; reserved). */
+    CLOUD_SHADOWS,
     /** Lib-provided world data for terrain shaders (the column field); never provided by anything else. */
     WORLD_DATA,
     /** Developer/debug visuals; never provided by anything else. */

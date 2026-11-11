@@ -33,6 +33,11 @@ public final class AtmosFeature {
          * the eye, computed once at the top of main() for every feature that needs it). Use with TERRAIN_SHADER.
          */
         FACE_NORMAL,
+        /**
+         * Draws into the world image from a post pass (0.7.0: Stratos clouds). A shaderpack replaces that image's
+         * pipeline, so such a feature is off while one is active, even with respect_overlap off. Switching is live.
+         */
+        WORLD_PASS,
         /** Only CPU state, the lightmap or post passes: switching is live. */
         OTHER
     }

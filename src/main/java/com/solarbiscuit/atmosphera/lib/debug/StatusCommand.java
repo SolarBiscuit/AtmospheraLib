@@ -111,6 +111,11 @@ public final class StatusCommand {
                 + com.solarbiscuit.atmosphera.lib.world.SunSource.describe());
         out.add(com.solarbiscuit.atmosphera.lib.gpu.AtmosGl.describe());
         out.addAll(com.solarbiscuit.atmosphera.lib.compat.voxy.VoxyBridge.describe());
+        out.add("Clouds: " + (com.solarbiscuit.atmosphera.lib.world.CloudCover.active()
+                ? String.format(java.util.Locale.ROOT, "provider active, sun cover %.2f, moon cover %.2f",
+                        com.solarbiscuit.atmosphera.lib.world.CloudCover.sunCover(),
+                        com.solarbiscuit.atmosphera.lib.world.CloudCover.moonCover())
+                : "none") + " | Distant Horizons: " + com.solarbiscuit.atmosphera.lib.compat.dh.DhBridge.status());
         Map<GpuResources.Type, Integer> counts = GpuResources.counts();
         out.add("Live GL objects: " + (counts.isEmpty() ? "none" : counts) + String.format(java.util.Locale.ROOT,
                 " | texture memory %.1f MB (recorded)", GpuResources.totalTextureBytes() / 1048576.0));

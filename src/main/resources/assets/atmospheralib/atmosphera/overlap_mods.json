@@ -14,5 +14,8 @@
   "VOLUMETRIC_LIGHT": [],
   "ATMOSPHERIC_FOG": [],
   "REFLECTIONS": [],
-  "POST_PROCESS": []
+  "POST_PROCESS": [],
+  "CLOUDS": [],
+  "SKY": [],
+  "CLOUD_SHADOWS": []
 }

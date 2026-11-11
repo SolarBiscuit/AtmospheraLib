@@ -84,6 +84,9 @@ public final class OverlapGuard {
                 return "needs Xenon's compact vertex format";
             }
         }
+        if (feature.uses(AtmosFeature.Uses.WORLD_PASS) && env.pack().active()) {
+            return "shaderpack '" + env.pack().name() + "' draws the world (and its own sky and clouds)";
+        }
         if (!feature.respectsOverlap()) {
             return null;
         }

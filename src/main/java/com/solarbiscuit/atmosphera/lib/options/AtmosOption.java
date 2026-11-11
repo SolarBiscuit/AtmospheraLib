@@ -9,10 +9,11 @@ import java.util.Objects;
  * One setting, declared once through {@link AtmosConfig}: it lives in the mod's TOML file and appears in the
  * Atmosphera pages of Video Settings. {@link #get()} is cheap (Forge caches config values) and thread-safe.
  *
- * @param <T> Boolean, Integer, Double (shown as a percentage slider) or an enum
+ * @param <T> Boolean, Integer, Double (shown as a percentage slider), an enum, or a String colour ({@link #rgb()})
  */
 public final class AtmosOption<T> {
-    enum Control { TOGGLE, SLIDER, PERCENT, CYCLE }
+    /** COLOR (0.6.5): a #RRGGBB string, set in the TOML only (Embeddium's pages have no text field). */
+    enum Control { TOGGLE, SLIDER, PERCENT, CYCLE, COLOR }
 
     final AtmosConfig owner;
     final String path;
@@ -52,6 +53,44 @@ public final class AtmosOption<T> {
     public void set(T newValue) {
         value.set(newValue);
         owner.markDirty();
+    }
+
+    /**
+     * A COLOR option's value as 0xRRGGBB (0.6.5). Accepts {@code #RRGGBB}, {@code RRGGBB}, {@code #RGB} and
+     * {@code 0xRRGGBB}; anything else gives the default, so a typo never breaks the game.
+     */
+    public int rgb() {
+        Object raw = value.get();
+        int parsed = parseRgb(raw instanceof String text ? text : null);
+        if (parsed >= 0) {
+            return parsed;
+        }
+        Object def = value.getDefault();
+        int fallback = parseRgb(def instanceof String text ? text : null);
+        return Math.max(fallback, 0);
+    }
+
+    static int parseRgb(String text) {
+        if (text == null) {
+            return -1;
+        }
+        String t = text.trim();
+        if (t.startsWith("#")) {
+            t = t.substring(1);
+        } else if (t.startsWith("0x") || t.startsWith("0X")) {
+            t = t.substring(2);
+        }
+        if (t.length() == 3) {
+            t = "" + t.charAt(0) + t.charAt(0) + t.charAt(1) + t.charAt(1) + t.charAt(2) + t.charAt(2);
+        }
+        if (t.length() != 6) {
+            return -1;
+        }
+        try {
+            return Integer.parseInt(t, 16);
+        } catch (NumberFormatException e) {
+            return -1;
+        }
     }
 
     public String path() {

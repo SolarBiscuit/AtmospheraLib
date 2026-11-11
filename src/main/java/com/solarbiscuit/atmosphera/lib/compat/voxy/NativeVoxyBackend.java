@@ -19,6 +19,8 @@ final class NativeVoxyBackend implements VoxyBridge.Backend {
     private static final int REQUIRE_OPAQUE_DEPTH = 1;
     private static final int REQUIRE_UNMERGED_FOLIAGE = 2;
     private static final int REQUIRE_SECTION_EMITTERS = 4;
+    /** API 4: column tops per built LOD section. */
+    private static final int REQUIRE_SECTION_COLUMNS = 16;
 
     private final Class<?> api;
     //Material-only mode (text-patch backend on a NeoVoxy build): fills BlockModel._pad[0], adds no GLSL
@@ -112,13 +114,27 @@ final class NativeVoxyBackend implements VoxyBridge.Backend {
                 if (this.materialOnly) return 0;
                 return (VoxyBridge.needsOpaqueDepth() ? REQUIRE_OPAQUE_DEPTH : 0)
                         | (VoxyBridge.needsUnmergedFoliage() ? REQUIRE_UNMERGED_FOLIAGE : 0)
-                        | (VoxyBridge.needsSectionEmitters() ? REQUIRE_SECTION_EMITTERS : 0);
+                        | (VoxyBridge.needsSectionEmitters() ? REQUIRE_SECTION_EMITTERS : 0)
+                        | (VoxyBridge.needsSectionColumns() ? REQUIRE_SECTION_COLUMNS : 0);
             case "emitterWordFor":
                 return this.materialOnly ? 0 : VoxyBridge.emitterWordFor((BlockState) args[0]);
             case "sectionEmitters":
                 if (!this.materialOnly) {
                     VoxyBridge.sectionEmitters((int) args[0], (int) args[1], (int) args[2], (int) args[3],
                             (long[]) args[4], (int) args[5]);
+                }
+                return null;
+            case "sectionColumns":
+                if (!this.materialOnly) {
+                    VoxyBridge.sectionColumns((int) args[0], (int) args[1], (int) args[2], (int) args[3],
+                            (short[]) args[4], (short[]) args[5]);
+                }
+                return null;
+            case "glslFog":
+                return this.materialOnly ? "" : VoxyBridge.fogGlsl();
+            case "fogData":
+                if (!this.materialOnly) {
+                    VoxyBridge.fogData((float[]) args[0]);
                 }
                 return null;
             case "beforeLodDraw":

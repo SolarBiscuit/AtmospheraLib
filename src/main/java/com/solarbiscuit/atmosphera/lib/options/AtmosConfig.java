@@ -9,17 +9,14 @@ import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.fml.config.ModConfig;
 import net.minecraftforge.fml.event.config.ModConfigEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
-import net.minecraftforge.fml.loading.FMLPaths;
 
-import java.io.IOException;
-import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.BooleanSupplier;
 
 /**
  * A mod's Atmosphera settings: declare each option once and get both the TOML entry
- * ({@code config/SolConfig/atmosphera/<modid>-client.toml}) and the control in Video Settings, where every TOML section is
+ * ({@code config/Atmosphera/<modid>-client.toml}) and the control in Video Settings, where every TOML section is
  * a page under the owning mod's heading in the sidebar.
  * <pre>{@code
  * AtmosConfig config = AtmosConfig.create("gale", "Gale (wind)");
@@ -160,6 +157,16 @@ public final class AtmosConfig {
                 (int) Math.round(min * 100), (int) Math.round(max * 100), 5, null, value));
     }
 
+    /**
+     * A colour as a {@code #RRGGBB} string (0.6.5), read with {@link AtmosOption#rgb()}. TOML only: it is not shown in
+     * Video Settings (Embeddium's pages have no text field). An invalid value falls back to the default.
+     */
+    public AtmosOption<String> color(String key, String defaultValue, ChangeTier tier, String name, String tooltip) {
+        ForgeConfigSpec.ConfigValue<String> value = builder.comment(tooltip + " Hex colour, #RRGGBB (set in this file only).")
+                .define(key, defaultValue, v -> v instanceof String s && AtmosOption.parseRgb(s) >= 0);
+        return add(new AtmosOption<>(this, path(key), name, tooltip, tier, AtmosOption.Control.COLOR, 0, 0, 1, null, value));
+    }
+
     public <E extends Enum<E>> AtmosOption<E> choice(String key, E defaultValue, ChangeTier tier, String name, String tooltip) {
         ForgeConfigSpec.EnumValue<E> value = builder.comment(tooltip).defineEnum(key, defaultValue);
         return add(new AtmosOption<>(this, path(key), name, tooltip, tier, AtmosOption.Control.CYCLE, 0, 0, 1,
@@ -197,12 +204,9 @@ public final class AtmosConfig {
     public void register() {
         closeSection();
         spec = builder.build();
-        try {
-            Files.createDirectories(FMLPaths.CONFIGDIR.get().resolve("SolConfig").resolve("atmosphera"));
-        } catch (IOException e) {
-            AtmospheraLib.LOGGER.warn("Could not create config/SolConfig/atmosphera: {}", e.toString());
-        }
-        ModLoadingContext.get().registerConfig(ModConfig.Type.CLIENT, spec, "SolConfig/atmosphera/" + modId + "-client.toml");
+        String fileName = modId + "-client.toml";
+        AtmosPaths.file(fileName); // creates config/Atmosphera and moves a pre-0.6.7 file across
+        ModLoadingContext.get().registerConfig(ModConfig.Type.CLIENT, spec, AtmosPaths.relative(fileName));
         var modBus = FMLJavaModLoadingContext.get().getModEventBus();
         modBus.addListener((ModConfigEvent.Loading event) -> {
             if (event.getConfig().getSpec() == spec) {

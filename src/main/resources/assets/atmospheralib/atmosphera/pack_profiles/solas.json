@@ -21,6 +21,9 @@
     "VOLUMETRIC_LIGHT": {"define": "VL", "is": "defined"},
     "ATMOSPHERIC_FOG": { "always": true },
     "REFLECTIONS": { "always": true },
-    "POST_PROCESS": { "always": true }
+    "POST_PROCESS": { "always": true },
+    "CLOUDS": { "always": true },
+    "SKY": { "always": true },
+    "CLOUD_SHADOWS": { "always": true }
   }
 }

@@ -93,6 +93,7 @@ public final class AtmosClient {
             com.solarbiscuit.atmosphera.lib.gpu.TerrainSamplers.freeze();
             AtmosState.refreshNow();
             com.solarbiscuit.atmosphera.lib.compat.voxy.VoxyBridge.init();
+            com.solarbiscuit.atmosphera.lib.compat.dh.DhBridge.init();
             AtmospheraLib.LOGGER.info("AtmospheraLib ready: {} features, {} vertex-bit fields, {} snippets.",
                     FeatureRegistry.all().size(), VertexBits.fields().size(), ShaderSnippets.count());
         });
@@ -149,6 +150,8 @@ public final class AtmosClient {
             }
         } else if (stage == RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS) {
             runPosts(PostPasses.Stage.AFTER_TRANSLUCENT, event);
+        } else if (stage == RenderLevelStageEvent.Stage.AFTER_PARTICLES) {
+            runPosts(PostPasses.Stage.CLOUDS, event);
         } else if (stage == RenderLevelStageEvent.Stage.AFTER_WEATHER) {
             // The world matrices for the FINAL stage, after the hand (0.6.4): copied, no allocation.
             FINAL_PROJECTION.set(event.getProjectionMatrix());

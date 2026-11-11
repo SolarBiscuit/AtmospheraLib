@@ -96,6 +96,10 @@ public final class OptionsPage {
             OptionGroup.Builder group = OptionGroup.createBuilder();
             boolean any = false;
             for (AtmosOption<?> option : section) {
+                if (option.control == AtmosOption.Control.COLOR) {
+                    // TOML only (0.6.5): no text field on these pages.
+                    continue;
+                }
                 if (config.isOverlapSwitch(option)) {
                     overlap.add(control(config, option));
                     anyOverlap = true;

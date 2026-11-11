@@ -26,6 +26,12 @@ public final class PostPasses {
         BEFORE_TRANSLUCENT,
         /** After translucent terrain (water, glass), before particles and weather. */
         AFTER_TRANSLUCENT,
+        /**
+         * Vanilla's cloud slot (0.7.0): after particles, before weather, whether or not vanilla clouds are switched on
+         * (Forge's AFTER_PARTICLES stage). Opaque, translucent and NeoVoxy/Voxy LOD terrain are in the depth buffer.
+         * Not reached under Fabulous graphics' separate cloud target; check {@code Minecraft.useShaderTransparency()}.
+         */
+        CLOUDS,
         /** After particles and weather, before the hand and the GUI. */
         AFTER_WEATHER,
         /**

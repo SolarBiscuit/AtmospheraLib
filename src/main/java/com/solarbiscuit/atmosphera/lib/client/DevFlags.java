@@ -1,6 +1,6 @@
 package com.solarbiscuit.atmosphera.lib.client;
 
-import net.minecraftforge.fml.loading.FMLPaths;
+import com.solarbiscuit.atmosphera.lib.options.AtmosPaths;
 
 import java.io.IOException;
 import java.io.Reader;
@@ -10,7 +10,7 @@ import java.util.Properties;
 
 /**
  * Developer switches, read once at startup from system properties ({@code -Datmospheralib.debugFeatures=true},
- * {@code -Datmospheralib.statusEvery=N}) or from {@code config/SolConfig/atmosphera/atmospheralib-dev.properties}
+ * {@code -Datmospheralib.statusEvery=N}) or from {@code config/Atmosphera/atmospheralib-dev.properties}
  * ({@code debug_features}, {@code status_every}, {@code clock_log}, {@code shot_file}, {@code hide_gui}, ...). The file exists for launchers that keep JVM arguments in memory.
  */
 public final class DevFlags {
@@ -40,7 +40,7 @@ public final class DevFlags {
 
     static {
         Properties file = new Properties();
-        Path path = FMLPaths.CONFIGDIR.get().resolve("SolConfig").resolve("atmosphera").resolve("atmospheralib-dev.properties");
+        Path path = AtmosPaths.file("atmospheralib-dev.properties");
         if (Files.exists(path)) {
             try (Reader reader = Files.newBufferedReader(path)) {
                 file.load(reader);
