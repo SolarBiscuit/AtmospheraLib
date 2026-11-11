@@ -93,6 +93,10 @@ public final class FrameUniforms {
                 com.solarbiscuit.atmosphera.lib.world.ColumnFieldShader::writeSlot);
         lib("atmos_Cloud", "clouds (0.7.0): x sun cover 0..1, y moon cover, z low deck base (world y), w 1 while a cloud provider is active (world.CloudCover)",
                 com.solarbiscuit.atmosphera.lib.world.CloudCover::writeSlot);
+        lib("atmos_CloudShadow", "cloud shadow map (0.7.1): xy map centre minus camera, z 1 / map size (blocks), w 1 while published (world.CloudShadowShader)",
+                com.solarbiscuit.atmosphera.lib.world.CloudCover::writeShadowSlot);
+        lib("atmos_CloudShadow2", "cloud shadow map (0.7.1): x reference plane height, y camera height",
+                com.solarbiscuit.atmosphera.lib.world.CloudCover::writeShadowSlot2);
         lib("atmos_Dh", "Distant Horizons (0.7.0): x near plane, y far plane (blocks), z 1 while DH draws LODs, w 0 (compat.dh.DhBridge)",
                 out -> com.solarbiscuit.atmosphera.lib.compat.dh.DhBridge.writeSlot(out, lastFrame));
         lib("atmos_Lod", "x: LOD transition start, y: transition end (blocks from the camera), z: vanilla render distance (blocks), w: 1 while Voxy LODs draw Atmosphera shading", out -> {

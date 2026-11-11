@@ -30,6 +30,22 @@ public final class CloudCover {
          * than the screen; sample it with linear filtering). Its id may change every frame: never cache it.
          */
         int transmittanceTexture();
+
+        /**
+         * The cloud shadow map (0.7.1): an R8 texture of the clouds' transmittance along the sun on a horizontal
+         * reference plane, world-locked; 0 when there is none this frame. Render thread.
+         */
+        default int shadowTexture() {
+            return 0;
+        }
+
+        /**
+         * The shadow map's placement (0.7.1): out[0], out[1] its centre minus the camera (blocks, x and z), out[2] its
+         * size (blocks), out[3] the reference plane's world height. Return false while there is no map.
+         */
+        default boolean shadowParams(float[] out) {
+            return false;
+        }
     }
 
     private static volatile Provider provider;
@@ -61,6 +77,30 @@ public final class CloudCover {
     /** The screen-space cloud texture (alpha = transmittance), or 0. Render thread. */
     public static int transmittanceTexture() {
         return active() ? provider.transmittanceTexture() : 0;
+    }
+
+    /** The cloud shadow map (0.7.1), or 0 (no provider, feature off, or no map this frame). Render thread. */
+    public static int shadowTexture() {
+        return active() ? provider.shadowTexture() : 0;
+    }
+
+    private static final float[] SHADOW = new float[4];
+
+    /** atmos_CloudShadow (0.7.1): xy map centre minus camera, z 1 / map size, w 1 while a map is published. */
+    public static void writeShadowSlot(float[] out) {
+        if (!active() || provider.shadowTexture() == 0 || !provider.shadowParams(SHADOW) || SHADOW[2] <= 0f) {
+            return;
+        }
+        out[0] = SHADOW[0];
+        out[1] = SHADOW[1];
+        out[2] = 1f / SHADOW[2];
+        out[3] = 1f;
+    }
+
+    /** atmos_CloudShadow2 (0.7.1): x reference plane height, y camera height. Written after the first slot. */
+    public static void writeShadowSlot2(float[] out) {
+        out[0] = SHADOW[3];
+        out[1] = (float) net.minecraft.client.Minecraft.getInstance().gameRenderer.getMainCamera().getPosition().y;
     }
 
     /** atmos_Cloud: x sun cover, y moon cover, z deck base, w active. */

@@ -84,6 +84,7 @@ public final class AtmosClient {
         event.enqueueWork(() -> {
             // Every Atmosphera mod has been constructed by now: late registrations, then the layout is fixed.
             com.solarbiscuit.atmosphera.lib.world.ColumnFieldShader.registerLate();
+            com.solarbiscuit.atmosphera.lib.world.CloudShadowShader.registerLate();
             DebugFeatures.registerLate();
             FeatureRegistry.freeze();
             VertexBits.freeze();
