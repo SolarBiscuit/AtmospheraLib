@@ -217,13 +217,18 @@ public final class AtmosState {
             }
         }
         for (MeshHooks.BlockEntry entry : MeshHooks.blockHooks()) {
+            // 0.8.2: a feature registered but not in the frozen list (another mod broke loading before the freeze):
+            // skip it instead of failing the resource reload, so the real error stays the one reported.
+            if (entry.feature().index() >= active.length) {
+                continue;
+            }
             if (active[entry.feature().index()]) {
                 blocks.add(entry.hook());
                 if (entry.feature().uses(AtmosFeature.Uses.LIGHT_BITS)) lights.add(entry.hook());
             }
         }
         for (MeshHooks.FluidEntry entry : MeshHooks.fluidHooks()) {
-            if (active[entry.feature().index()]) fluids.add(entry.hook());
+            if (entry.feature().index() < active.length && active[entry.feature().index()]) fluids.add(entry.hook());
         }
 
         AtmosState previous = current;

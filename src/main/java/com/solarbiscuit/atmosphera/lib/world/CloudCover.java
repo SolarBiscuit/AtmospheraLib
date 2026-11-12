@@ -35,6 +35,11 @@ public final class CloudCover {
          * The cloud shadow map (0.7.1): an R8 texture of the clouds' transmittance along the sun on a horizontal
          * reference plane, world-locked; 0 when there is none this frame. Render thread.
          */
+        /** Lightning inside the clouds right now, 0 (none) to about 1.3 (a bolt nearby) (0.8.0). Any thread. */
+        default float flash() {
+            return 0f;
+        }
+
         default int shadowTexture() {
             return 0;
         }
@@ -72,6 +77,14 @@ public final class CloudCover {
 
     public static float moonCover() {
         return active() ? clamp(provider.moonCover()) : 0f;
+    }
+
+    /**
+     * Lightning inside the clouds (0.8.0, Stratos 0.5.0 "Storm"): 0 without a flash, up to about 1.3 for a bolt
+     * nearby. Flickers over a few frames. Lumis and others can brighten the sky light by it. Any thread.
+     */
+    public static float flash() {
+        return active() ? Math.max(0f, provider.flash()) : 0f;
     }
 
     /** The screen-space cloud texture (alpha = transmittance), or 0. Render thread. */

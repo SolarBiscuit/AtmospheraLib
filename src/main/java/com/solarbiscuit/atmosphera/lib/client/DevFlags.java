@@ -37,6 +37,11 @@ public final class DevFlags {
      */
     public static final float[] CLOCK_OVERRIDE;
     public static final float CLOCK_HOLD;
+    /**
+     * Test of the reload ({@code reload_at=S}, 0.8.0): S seconds into the first world, runs the full reload (settings
+     * and shaders) as {@code /atmosphera reload shaders} would, and logs the summary. 0 = off.
+     */
+    public static final int RELOAD_AT;
 
     static {
         Properties file = new Properties();
@@ -90,6 +95,13 @@ public final class DevFlags {
             hold = 20f;
         }
         CLOCK_HOLD = Math.max(1f, hold);
+        int reloadAt;
+        try {
+            reloadAt = Integer.parseInt(file.getProperty("reload_at", "0").trim());
+        } catch (NumberFormatException e) {
+            reloadAt = 0;
+        }
+        RELOAD_AT = reloadAt;
     }
 
     private DevFlags() {

@@ -97,6 +97,8 @@ public final class FrameUniforms {
                 com.solarbiscuit.atmosphera.lib.world.CloudCover::writeShadowSlot);
         lib("atmos_CloudShadow2", "cloud shadow map (0.7.1): x reference plane height, y camera height",
                 com.solarbiscuit.atmosphera.lib.world.CloudCover::writeShadowSlot2);
+        lib("atmos_SkyView", "sky view map (0.8.0): x 1 while the sky mod publishes its map (world.SkyView)",
+                com.solarbiscuit.atmosphera.lib.world.SkyView::writeSlot);
         lib("atmos_Dh", "Distant Horizons (0.7.0): x near plane, y far plane (blocks), z 1 while DH draws LODs, w 0 (compat.dh.DhBridge)",
                 out -> com.solarbiscuit.atmosphera.lib.compat.dh.DhBridge.writeSlot(out, lastFrame));
         lib("atmos_Lod", "x: LOD transition start, y: transition end (blocks from the camera), z: vanilla render distance (blocks), w: 1 while Voxy LODs draw Atmosphera shading", out -> {

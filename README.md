@@ -66,8 +66,10 @@ The figures below are the project's own measurements, taken with the in-repo sce
 | 0.2 to 0.3 | Foundation | Shader patching, vertex bits, frame uniforms, depth copies, wind, GPU timers, hygiene and fewer GL queries |
 | 0.4.0 | Capacity | 128 uniform slots, more sampler units, the before-translucent stage, wind axes |
 | 0.5.0 | Shared world data | Column field, sun source |
-| 0.6.x | Temporal (**current: 0.6.1**) | Reprojection and history targets, dev clock override |
-| 0.7.0 | Optional | Upload ring†, Fabulous compositing†, only if measured |
+| 0.6.x | Temporal | Reprojection and history targets, dev clock override, config folder |
+| 0.7.x | Sky | Cloud, sky and Distant Horizons contracts, cloud shadows, the `SKY` stage and sky colour |
+| 0.8.x | Reload and sky view (**current: 0.8.2**) | `/atmosphera reload` and the reload key, the sky-view map for water and terrain, lightning flash for other mods, Atmospherics in the overlap list |
+| Unscheduled | Optional | Upload ring†, Fabulous compositing†, only if measured |
 
 Dates are not promised. Each feature release is a minor version (0.X.0). Version 1.0.0 is only used when the project is declared complete.
 

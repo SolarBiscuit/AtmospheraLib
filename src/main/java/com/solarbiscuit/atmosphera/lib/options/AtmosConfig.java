@@ -272,17 +272,31 @@ public final class AtmosConfig {
     public static boolean pollFiles() {
         boolean reloaded = false;
         for (AtmosConfig config : all()) {
-            reloaded |= config.poll();
+            reloaded |= config.poll(false);
         }
         return reloaded;
     }
 
-    private boolean poll() {
+    /**
+     * Re-reads every Atmosphera TOML now, edited or not (0.8.0, {@link AtmosReload}). Returns how many were read. The
+     * caller applies the changes ({@code AtmosState.refreshNow()}). Render thread.
+     */
+    public static int reloadAll() {
+        int count = 0;
+        for (AtmosConfig config : all()) {
+            if (config.poll(true)) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    private boolean poll(boolean force) {
         if (modConfig == null) {
             return false;
         }
         long modified = lastModified();
-        if (modified == lastModified) {
+        if (!force && modified == lastModified) {
             return false;
         }
         lastModified = modified;
@@ -294,7 +308,9 @@ public final class AtmosConfig {
                     lastModified = lastModified();
                 }
                 spec.afterReload();
-                AtmospheraLib.LOGGER.info("Reloaded {} after it was edited.", modConfig.getFileName());
+                if (!force) {
+                    AtmospheraLib.LOGGER.info("Reloaded {} after it was edited.", modConfig.getFileName());
+                }
                 return true;
             }
         } catch (RuntimeException e) {

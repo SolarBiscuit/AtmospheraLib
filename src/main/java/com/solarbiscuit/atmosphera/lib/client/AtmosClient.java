@@ -37,6 +37,10 @@ public final class AtmosClient {
     }
 
     /** Frame counter, advanced when the sky of a new frame has been drawn. */
+    /** "Reload Atmosphera" (0.8.0): unbound by default, so it clashes with nothing. */
+    public static final net.minecraft.client.KeyMapping RELOAD_KEY = new net.minecraft.client.KeyMapping(
+            "key.atmospheralib.reload", com.mojang.blaze3d.platform.InputConstants.UNKNOWN.getValue(), "key.categories.atmosphera");
+
     public static long frame() {
         return frame;
     }
@@ -45,6 +49,7 @@ public final class AtmosClient {
         LibConfig.init();
         modBus.addListener(AtmosClient::setup);
         modBus.addListener(AtmosClient::reloadListeners);
+        modBus.addListener((net.minecraftforge.client.event.RegisterKeyMappingsEvent e) -> e.register(RELOAD_KEY));
         MinecraftForge.EVENT_BUS.addListener(AtmosClient::clientTick);
         // Before anything of the frame reads the world clock (uniforms, wind for particles).
         MinecraftForge.EVENT_BUS.addListener((TickEvent.RenderTickEvent e) -> {
@@ -89,6 +94,7 @@ public final class AtmosClient {
             // Every Atmosphera mod has been constructed by now: late registrations, then the layout is fixed.
             com.solarbiscuit.atmosphera.lib.world.ColumnFieldShader.registerLate();
             com.solarbiscuit.atmosphera.lib.world.CloudShadowShader.registerLate();
+            com.solarbiscuit.atmosphera.lib.world.SkyView.registerLate();
             DebugFeatures.registerLate();
             FeatureRegistry.freeze();
             VertexBits.freeze();
@@ -115,6 +121,16 @@ public final class AtmosClient {
         if (event.phase == TickEvent.Phase.END) {
             AtmosState.tick(ticks++);
             StatusCommand.tick();
+            while (RELOAD_KEY.consumeClick()) {
+                // 0.8.0: the "Reload Atmosphera" key: settings and shaders, with the summary in chat.
+                com.solarbiscuit.atmosphera.lib.options.AtmosReload.Summary summary =
+                        com.solarbiscuit.atmosphera.lib.options.AtmosReload.reload(true);
+                net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+                if (mc.player != null) {
+                    mc.player.displayClientMessage(net.minecraft.network.chat.Component.literal(summary.line())
+                            .withStyle(net.minecraft.ChatFormatting.AQUA), false);
+                }
+            }
             if (DevFlags.SHOT_FILE) {
                 shotRequest();
             }

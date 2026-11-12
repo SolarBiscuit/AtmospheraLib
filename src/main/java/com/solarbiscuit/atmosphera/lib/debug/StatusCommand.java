@@ -48,6 +48,10 @@ public final class StatusCommand {
             return;
         }
         worldTicks++;
+        int reloadAt = com.solarbiscuit.atmosphera.lib.client.DevFlags.RELOAD_AT;
+        if (reloadAt > 0 && worldTicks == reloadAt * 20L) {
+            com.solarbiscuit.atmosphera.lib.options.AtmosReload.reload(true);
+        }
         boolean first = !loggedFirstJoin && worldTicks == 100;
         boolean periodic = STATUS_EVERY > 0 && worldTicks % (STATUS_EVERY * 20L) == 0;
         if (first || periodic) {
@@ -65,7 +69,22 @@ public final class StatusCommand {
                 AtmospheraLib.LOGGER.info("[status] {}", line);
             }
             return 1;
-        })));
+        })).then(Commands.literal("reload")
+                // 0.8.0: every Atmosphera config at once; "shaders" also rebuilds every shader. Client-side.
+                .executes(ctx -> reload(ctx.getSource(), false))
+                .then(Commands.literal("shaders").executes(ctx -> reload(ctx.getSource(), true)))));
+    }
+
+    private static int reload(CommandSourceStack source, boolean shaders) {
+        com.solarbiscuit.atmosphera.lib.options.AtmosReload.Summary summary =
+                com.solarbiscuit.atmosphera.lib.options.AtmosReload.reload(shaders);
+        source.sendSuccess(() -> Component.literal(summary.line()).withStyle(ChatFormatting.AQUA), false);
+        if (!summary.changedPaths().isEmpty()) {
+            String list = String.join(", ", summary.changedPaths().subList(0, Math.min(8, summary.changedPaths().size())))
+                    + (summary.changedPaths().size() > 8 ? ", ..." : "");
+            source.sendSuccess(() -> Component.literal("  " + list).withStyle(ChatFormatting.GRAY), false);
+        }
+        return 1;
     }
 
     private static ChatFormatting color(String line) {

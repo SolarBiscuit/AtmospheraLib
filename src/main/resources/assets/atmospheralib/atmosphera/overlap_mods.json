@@ -12,7 +12,7 @@
   "SUN_SHADOWS": [],
   "DIRECTIONAL_LIGHT": [],
   "VOLUMETRIC_LIGHT": [],
-  "ATMOSPHERIC_FOG": [],
+  "ATMOSPHERIC_FOG": ["atmospherics"],
   "REFLECTIONS": [],
   "POST_PROCESS": [],
   "CLOUDS": [],
