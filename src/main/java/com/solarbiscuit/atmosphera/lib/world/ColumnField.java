@@ -79,6 +79,7 @@ public final class ColumnField {
     private static int centreChunkZ;
     private static boolean centred;
     private static float maxTop = -1e9f;
+    private static float minTop = 1e9f;
     private static long uploads;
     private static int generation;
     private static ClientLevel level;
@@ -201,6 +202,15 @@ public final class ColumnField {
         return maxTop;
     }
 
+    /**
+     * Lowest caster top seen since the last reset (world y), or a value above {@link #maxTop()} when none was seen
+     * (0.9.1). With {@code maxTop} it bounds how tall the casters in the window can stand, for passes whose work grows
+     * with that range (Lumis's sun-following shadow passes).
+     */
+    public static float minTop() {
+        return minTop;
+    }
+
     /** Counts tile uploads; a consumer that derives data from the texture compares it with the count it last used. */
     public static long uploadCount() {
         return uploads;
@@ -280,6 +290,7 @@ public final class ColumnField {
             QUEUE.clear();
             centred = false;
             maxTop = -1e9f;
+            minTop = 1e9f;
             fullUpload = true;
             generation++;
         }
@@ -563,6 +574,7 @@ public final class ColumnField {
     private static void noteTop(int raw) {
         if (raw != 0) {
             maxTop = Math.max(maxTop, top(raw));
+            minTop = Math.min(minTop, top(raw));
         }
     }
 

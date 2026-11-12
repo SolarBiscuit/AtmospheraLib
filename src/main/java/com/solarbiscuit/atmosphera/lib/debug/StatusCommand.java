@@ -142,7 +142,9 @@ public final class StatusCommand {
             WindVector wind = new WindVector();
             Wind.global(Minecraft.getInstance().level, Minecraft.getInstance().getFrameTime(), wind);
             out.add("Wind (" + Wind.provider().name() + "): " + wind);
-            out.add(com.solarbiscuit.atmosphera.lib.wind.AtmosClock.describe(Minecraft.getInstance().level));
+            out.add(com.solarbiscuit.atmosphera.lib.wind.ClientClock.describe(Minecraft.getInstance().level));
+            out.add(com.solarbiscuit.atmosphera.lib.world.Weather.describe(Minecraft.getInstance().level,
+                    Minecraft.getInstance().getFrameTime()));
         }
         if (GpuTimers.isEnabled()) {
             out.add("GPU ms/frame (last 10 s): " + GpuTimers.lastAverages());

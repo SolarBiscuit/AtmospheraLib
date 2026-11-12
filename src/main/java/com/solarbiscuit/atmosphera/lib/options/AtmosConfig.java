@@ -17,9 +17,9 @@ import java.util.function.BooleanSupplier;
 /**
  * A mod's Atmosphera settings: declare each option once and get both the TOML entry
  * ({@code config/Atmosphera/<modid>-client.toml}) and the control in Video Settings, where every TOML section is
- * a page under the owning mod's heading in the sidebar.
+ * a group on the mod's page. The title is the page's name in the sidebar: the mod's name alone (0.8.3).
  * <pre>{@code
- * AtmosConfig config = AtmosConfig.create("gale", "Gale (wind)");
+ * AtmosConfig config = AtmosConfig.create("gale", "Gale");
  * config.section("waving", "Waving foliage");
  * AtmosConfig.FeatureSwitch waving = config.featureSwitch("enabled", true, "Waving foliage", "...");
  * AtmosOption<Double> amplitude = config.percent("amplitude", 1.0, 0.0, 2.0, ChangeTier.LIVE, "Amplitude", "...");
@@ -57,6 +57,7 @@ public final class AtmosConfig {
     private final List<String> sections = new ArrayList<>();
     private final List<Page> pages = new ArrayList<>();
     private List<AtmosOption<?>> currentGroup;
+    private boolean fileOnlyScope;
     private final java.util.Set<AtmosOption<?>> overlapSwitches = new java.util.HashSet<>();
     private ForgeConfigSpec spec;
     private volatile boolean dirty;
@@ -138,21 +139,36 @@ public final class AtmosConfig {
         return sections.isEmpty() ? key : String.join(".", sections) + "." + key;
     }
 
+    /**
+     * Options declared while this is on are TOML only (0.8.3): they keep their file entry, reload and tier, but get no
+     * control in Video Settings, and their file comment says so. For switches most players never touch. Turn it off
+     * again before declaring options that belong on the page; a new section does not reset it.
+     */
+    public AtmosConfig fileOnly(boolean on) {
+        fileOnlyScope = on;
+        return this;
+    }
+
+    /** The TOML comment: the tooltip, plus a note for {@link #fileOnly} options. */
+    private String comment(String tooltip) {
+        return fileOnlyScope ? tooltip + " Set in this file only (not shown in Video Settings)." : tooltip;
+    }
+
     public AtmosOption<Boolean> toggle(String key, boolean defaultValue, ChangeTier tier, String name, String tooltip) {
-        ForgeConfigSpec.BooleanValue value = builder.comment(tooltip).define(key, defaultValue);
+        ForgeConfigSpec.BooleanValue value = builder.comment(comment(tooltip)).define(key, defaultValue);
         return add(new AtmosOption<>(this, path(key), name, tooltip, tier, AtmosOption.Control.TOGGLE, 0, 1, 1, null, value));
     }
 
     public AtmosOption<Integer> slider(String key, int defaultValue, int min, int max, int step, ChangeTier tier,
                                        String name, String tooltip) {
-        ForgeConfigSpec.IntValue value = builder.comment(tooltip).defineInRange(key, defaultValue, min, max);
+        ForgeConfigSpec.IntValue value = builder.comment(comment(tooltip)).defineInRange(key, defaultValue, min, max);
         return add(new AtmosOption<>(this, path(key), name, tooltip, tier, AtmosOption.Control.SLIDER, min, max, step, null, value));
     }
 
     /** A multiplier stored as a double (1.0 = 100 %) and shown as a percentage slider in 5 % steps. */
     public AtmosOption<Double> percent(String key, double defaultValue, double min, double max, ChangeTier tier,
                                        String name, String tooltip) {
-        ForgeConfigSpec.DoubleValue value = builder.comment(tooltip).defineInRange(key, defaultValue, min, max);
+        ForgeConfigSpec.DoubleValue value = builder.comment(comment(tooltip)).defineInRange(key, defaultValue, min, max);
         return add(new AtmosOption<>(this, path(key), name, tooltip, tier, AtmosOption.Control.PERCENT,
                 (int) Math.round(min * 100), (int) Math.round(max * 100), 5, null, value));
     }
@@ -167,8 +183,21 @@ public final class AtmosConfig {
         return add(new AtmosOption<>(this, path(key), name, tooltip, tier, AtmosOption.Control.COLOR, 0, 0, 1, null, value));
     }
 
+    /**
+     * A list of strings (0.8.3), for example block ids. TOML only: it is not shown in Video Settings. Entries that are
+     * not strings are dropped by Forge's correction. Editing the file applies it at {@code tier}.
+     */
+    public AtmosOption<List<? extends String>> stringList(String key, List<String> defaultValue, ChangeTier tier,
+                                                          String name, String tooltip) {
+        List<String> def = List.copyOf(defaultValue);
+        ForgeConfigSpec.ConfigValue<List<? extends String>> value = builder
+                .comment(tooltip + " A list of strings (set in this file only).")
+                .defineListAllowEmpty(List.of(key), () -> def, entry -> entry instanceof String);
+        return add(new AtmosOption<>(this, path(key), name, tooltip, tier, AtmosOption.Control.LIST, 0, 0, 1, null, value));
+    }
+
     public <E extends Enum<E>> AtmosOption<E> choice(String key, E defaultValue, ChangeTier tier, String name, String tooltip) {
-        ForgeConfigSpec.EnumValue<E> value = builder.comment(tooltip).defineEnum(key, defaultValue);
+        ForgeConfigSpec.EnumValue<E> value = builder.comment(comment(tooltip)).defineEnum(key, defaultValue);
         return add(new AtmosOption<>(this, path(key), name, tooltip, tier, AtmosOption.Control.CYCLE, 0, 0, 1,
                 defaultValue.getDeclaringClass(), value));
     }
@@ -180,17 +209,28 @@ public final class AtmosConfig {
     public FeatureSwitch featureSwitch(String key, boolean defaultOn, String name, String tooltip) {
         AtmosOption<Boolean> enabled = toggle(key, defaultOn, ChangeTier.LIVE, name, tooltip);
         AtmosOption<Boolean> respect = toggle(key + "_respect_overlap", true, ChangeTier.LIVE,
-                name + ": defer to shaders/mods",
+                title + ": " + withoutTitle(name), // 0.9.2: in the Atmosphera page's defer group, named by mod
                 "Turn " + name + " off while a shaderpack or another mod already provides the same effect. "
                         + "Off forces it on where that is technically possible (a log warning says so).");
         overlapSwitches.add(respect);
         return new FeatureSwitch(enabled, respect);
     }
 
+    /** "Stratos clouds" becomes "Clouds" under "Stratos: " (the group names the mod already). */
+    private String withoutTitle(String name) {
+        String prefix = title + " ";
+        if (name.length() > prefix.length() && name.regionMatches(true, 0, prefix, 0, prefix.length())) {
+            String rest = name.substring(prefix.length());
+            return Character.toUpperCase(rest.charAt(0)) + rest.substring(1);
+        }
+        return name;
+    }
+
     private <T> AtmosOption<T> add(AtmosOption<T> option) {
         if (spec != null) {
             throw new IllegalStateException(modId + ": options must be declared before register()");
         }
+        option.fileOnly = fileOnlyScope;
         options.add(option);
         if (currentGroup == null) {
             mainPage().groups().add(new ArrayList<>());
@@ -235,7 +275,7 @@ public final class AtmosConfig {
         return List.copyOf(pages);
     }
 
-    /** Whether this option is a feature's "defer to shaders/mods" switch (shown in a separate group). */
+    /** Whether this option is a feature's "defer to shaders/mods" switch (shown on the Atmosphera page, 0.9.2). */
     public boolean isOverlapSwitch(AtmosOption<?> option) {
         return overlapSwitches.contains(option);
     }

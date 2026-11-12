@@ -16,7 +16,6 @@ import com.solarbiscuit.atmosphera.lib.options.OptionsPage;
 import com.solarbiscuit.atmosphera.lib.shader.ShaderPatcher;
 import com.solarbiscuit.atmosphera.lib.shader.ShaderSnippets;
 import com.solarbiscuit.atmosphera.lib.state.AtmosState;
-import com.solarbiscuit.atmosphera.lib.wind.AtmosClock;
 import net.minecraft.server.packs.resources.ResourceManagerReloadListener;
 import net.minecraftforge.client.event.CustomizeGuiOverlayEvent;
 import net.minecraftforge.client.event.RegisterClientCommandsEvent;
@@ -54,7 +53,7 @@ public final class AtmosClient {
         // Before anything of the frame reads the world clock (uniforms, wind for particles).
         MinecraftForge.EVENT_BUS.addListener((TickEvent.RenderTickEvent e) -> {
             if (e.phase == TickEvent.Phase.START) {
-                AtmosClock.update(net.minecraft.client.Minecraft.getInstance());
+                com.solarbiscuit.atmosphera.lib.wind.ClientClock.update(net.minecraft.client.Minecraft.getInstance());
             }
         });
         // AFTER_SKY at high priority (0.7.2): the frame starts and the SKY stage runs before other mods' AFTER_SKY work
@@ -78,6 +77,11 @@ public final class AtmosClient {
         });
         MinecraftForge.EVENT_BUS.addListener((net.minecraftforge.client.event.ClientPlayerNetworkEvent.LoggingIn e) ->
                 com.solarbiscuit.atmosphera.lib.world.CasterTable.reset());
+        // 0.9.0: what a server sent (its weather, its mods' settings) ends with the session.
+        MinecraftForge.EVENT_BUS.addListener((net.minecraftforge.client.event.ClientPlayerNetworkEvent.LoggingOut e) -> {
+            com.solarbiscuit.atmosphera.lib.world.Weather.clearSynced();
+            com.solarbiscuit.atmosphera.lib.net.ServerSettings.clear();
+        });
         if (AtmosCompat.hasSodiumPort()) {
             OptionsPage.register();
         } else {

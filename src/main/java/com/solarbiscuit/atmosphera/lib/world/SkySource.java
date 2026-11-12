@@ -13,11 +13,30 @@ public final class SkySource {
     public interface Provider {
         /** The sky's colour high above the camera, linear 0..1 like vanilla's sky colour; false when not drawn now. */
         boolean skyColor(float[] rgb);
+
+        /**
+         * The moon's colour as a multiplier on its usual light (0.8.3), for events that change it: a lunar eclipse
+         * gives a dim copper red. Return false while the moon is its usual colour.
+         */
+        default boolean moonTint(float[] rgb) {
+            return false;
+        }
+
+        /**
+         * Light a sky event adds to the night (0.9.2), such as a bright nebula: rgb its colour (linear) times how
+         * strongly it shows now, each about 0..1. Return false while there is none. The moon is not taken into account:
+         * a light mod weighs it against the moonlight itself.
+         */
+        default boolean nightLight(float[] rgb) {
+            return false;
+        }
     }
 
     private static volatile Provider provider;
     private static volatile AtmosFeature owner;
     private static final float[] RGB = new float[3];
+    private static final float[] TINT = new float[3];
+    private static final float[] NIGHT = new float[3];
 
     private SkySource() {
     }
@@ -42,6 +61,34 @@ public final class SkySource {
         out[0] = RGB[0];
         out[1] = RGB[1];
         out[2] = RGB[2];
+        return true;
+    }
+
+    /**
+     * Fills out[0..2] with the moon's tint (0.8.3) and returns true while a sky event changes it; otherwise leaves
+     * {@code out} alone and returns false (the moon is its usual colour). For night light (Lumis). Render thread.
+     */
+    public static boolean moonTint(float[] out) {
+        if (!active() || !provider.moonTint(TINT)) {
+            return false;
+        }
+        out[0] = TINT[0];
+        out[1] = TINT[1];
+        out[2] = TINT[2];
+        return true;
+    }
+
+    /**
+     * Fills out[0..2] with the light a sky event adds to the night (0.9.2, see {@link Provider#nightLight}) and returns
+     * true; otherwise leaves {@code out} alone and returns false. For night light (Lumis). Render thread.
+     */
+    public static boolean nightLight(float[] out) {
+        if (!active() || !provider.nightLight(NIGHT)) {
+            return false;
+        }
+        out[0] = NIGHT[0];
+        out[1] = NIGHT[1];
+        out[2] = NIGHT[2];
         return true;
     }
 }

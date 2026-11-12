@@ -300,7 +300,7 @@ public final class AtmosState {
             AtmospheraLib.LOGGER.info("[Atmosphera] {} is off ({}).", feature.id(), after);
         } else if (OverlapGuard.isOverlapReason(after)) {
             AtmospheraLib.LOGGER.warn("[Atmosphera] {} disabled: {}. Turn that effect off there, or switch off this "
-                    + "feature's \"defer to shaders/mods\" option to force it on.", feature.id(), after);
+                    + "feature's switch under \"Defer to shaderpacks and other mods\" (Video Settings, Atmosphera page) to force it on.", feature.id(), after);
         } else {
             AtmospheraLib.LOGGER.warn("[Atmosphera] {} disabled: {}.", feature.id(), after);
         }

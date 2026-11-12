@@ -13,7 +13,8 @@ import java.util.Objects;
  */
 public final class AtmosOption<T> {
     /** COLOR (0.6.5): a #RRGGBB string, set in the TOML only (Embeddium's pages have no text field). */
-    enum Control { TOGGLE, SLIDER, PERCENT, CYCLE, COLOR }
+    /** LIST (0.8.3): a list of strings, set in the TOML only. */
+    enum Control { TOGGLE, SLIDER, PERCENT, CYCLE, COLOR, LIST }
 
     final AtmosConfig owner;
     final String path;
@@ -27,6 +28,8 @@ public final class AtmosOption<T> {
     final int step;
     final Class<?> enumClass;
     final ForgeConfigSpec.ConfigValue<T> value;
+    /** TOML only (0.8.3): kept out of Video Settings; set by {@link AtmosConfig#fileOnly(boolean)}. */
+    boolean fileOnly;
     private Object lastApplied;
 
     AtmosOption(AtmosConfig owner, String path, String name, String tooltip, ChangeTier tier, Control control,
@@ -99,6 +102,11 @@ public final class AtmosOption<T> {
 
     public ChangeTier tier() {
         return tier;
+    }
+
+    /** True when the option is set in the TOML only and not shown in Video Settings (0.8.3). */
+    public boolean isFileOnly() {
+        return fileOnly || control == Control.COLOR || control == Control.LIST;
     }
 
     Component displayName() {

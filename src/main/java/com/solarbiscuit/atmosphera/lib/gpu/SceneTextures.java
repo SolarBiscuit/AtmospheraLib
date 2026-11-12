@@ -44,6 +44,19 @@ public final class SceneTextures {
         return COLOR.valid;
     }
 
+    /**
+     * The opaque scene's depth copy as a texture (0.9.1), or 0 while it is not valid. Valid from the start of the
+     * translucent terrain pass, so a {@code BEFORE_TRANSLUCENT} pass can read it. Do not change its parameters.
+     */
+    public static int depthTexture() {
+        return DEPTH.valid ? DEPTH.texture : 0;
+    }
+
+    /** The opaque scene's colour copy (RGBA8, linear filtering) as a texture (0.9.1), or 0 while it is not valid. */
+    public static int colorTexture() {
+        return COLOR.valid ? COLOR.texture : 0;
+    }
+
     /** Called at the start of the translucent terrain pass with what the active features need. */
     public static void copyBeforeTranslucent(boolean depth, boolean color) {
         if (!depth) {

@@ -15,19 +15,25 @@ import me.jellysquid.mods.sodium.client.gui.options.control.CyclingControl;
 import me.jellysquid.mods.sodium.client.gui.options.control.SliderControl;
 import me.jellysquid.mods.sodium.client.gui.options.control.TickBoxControl;
 import me.jellysquid.mods.sodium.client.gui.options.storage.OptionStorage;
+import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.resources.ResourceLocation;
 import org.embeddedt.embeddium.api.OptionGUIConstructionEvent;
 import org.embeddedt.embeddium.client.gui.options.OptionIdentifier;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * The Atmosphera pages of Video Settings (Xenon/Embeddium options screen). RatPack's screen lists pages flat, with no
- * mod headings, so every page is named after its mod: "Atmosphera", "Gale (wind)", "Torrente (water)", and pages of
- * their own for long sections such as "Torrente (water): Custom style". On a page every TOML section is a group
- * (groups are drawn apart), split again at each feature switch, and the "defer to shaders/mods" switches sit in one
- * group at the bottom. A mod's main page starts with its status line.
+ * mod headings, so every page is named after its mod: "Atmosphera", "Gale", "Torrente" (a {@code pageSection} would
+ * add a page of its own, "&lt;mod&gt;: &lt;section&gt;"; no mod uses one since 0.8.3). On a page every TOML section is a group
+ * (groups are drawn apart), split again at each feature switch. A mod's main page starts with its status line.
+ * 0.9.2: every mod's "defer to shaderpacks and other mods" switches sit in one group on the Atmosphera page; page names
+ * carry the mod's icon (a one-glyph font, {@code assets/<modid>/font/atmos_icon.json}) when the mod ships one; choice
+ * values are shown in normal case ("Vanilla Plus", not "VANILLA_PLUS").
  * Feature switches show live status: a suppressed feature is marked and its tooltip says why.
  */
 public final class OptionsPage {
@@ -61,48 +67,123 @@ public final class OptionsPage {
         });
     }
 
+    private static boolean loggedDefer;
+
     private static List<OptionPage> build() {
+        // 0.9.2: the defer switches of every mod, for the Atmosphera page.
+        OptionGroup.Builder defer = OptionGroup.createBuilder().add(header("Defer to shaderpacks and other mods",
+                "Each switch below turns its feature off while a shaderpack or another mod already provides the same "
+                        + "effect. Switched off, the feature is forced on where that is technically possible."));
+        boolean anyDefer = false;
+        int deferCount = 0;
+        // 0.9.2: a fixed order (mods register their configs in parallel at startup, so the tabs moved between
+        // launches): the library's page first, then the mods by name.
+        List<AtmosConfig> configs = new ArrayList<>(AtmosConfig.all());
+        configs.sort(java.util.Comparator.comparing((AtmosConfig c) -> !AtmospheraLib.MOD_ID.equals(c.modId()))
+                .thenComparing(AtmosConfig::title, String.CASE_INSENSITIVE_ORDER));
+        for (AtmosConfig config : configs) {
+            for (AtmosConfig.Page page : config.pages()) {
+                for (List<AtmosOption<?>> section : page.groups()) {
+                    for (AtmosOption<?> option : section) {
+                        if (!option.isFileOnly() && config.isOverlapSwitch(option)) {
+                            defer.add(control(config, option));
+                            anyDefer = true;
+                            deferCount++;
+                        }
+                    }
+                }
+            }
+        }
+        if (!loggedDefer) {
+            loggedDefer = true;
+            AtmospheraLib.LOGGER.info("[Atmosphera] Video Settings: {} pages, {} defer switches on the Atmosphera page",
+                    configs.size(), deferCount);
+        }
         List<OptionPage> pages = new ArrayList<>();
-        for (AtmosConfig config : AtmosConfig.all()) {
+        for (AtmosConfig config : configs) {
             boolean first = true;
+            boolean lib = AtmospheraLib.MOD_ID.equals(config.modId());
             for (AtmosConfig.Page page : config.pages()) {
                 List<OptionGroup> groups = new ArrayList<>();
                 if (first) {
                     groups.add(OptionGroup.createBuilder().add(statusLine(config)).build());
                 }
                 groups.addAll(groups(config, page));
+                if (lib && first && anyDefer) {
+                    groups.add(defer.build());
+                }
                 if (groups.isEmpty()) {
                     continue;
                 }
                 first = false;
-                pages.add(new OptionPage(OptionIdentifier.create(config.modId(), page.key()),
-                        Component.translatableWithFallback("atmosphera.options.page." + config.modId() + "." + page.key(),
-                                page.title()),
+                Component title = Component.translatableWithFallback(
+                        "atmosphera.options.page." + config.modId() + "." + page.key(), page.title());
+                pages.add(new OptionPage(OptionIdentifier.create(config.modId(), page.key()), withIcon(config.modId(), title),
                         ImmutableList.copyOf(groups)));
             }
         }
         return pages;
     }
 
+    /** The mod's icon glyph (U+E000 of the font {@code <modid>:atmos_icon}) and a space before the page name. */
+    private static Component withIcon(String modId, Component title) {
+        ResourceLocation font = new ResourceLocation(modId, "atmos_icon");
+        try {
+            if (Minecraft.getInstance().getResourceManager()
+                    .getResource(new ResourceLocation(modId, "font/atmos_icon.json")).isEmpty()) {
+                return title;
+            }
+        } catch (Throwable e) {
+            return title;
+        }
+        MutableComponent icon = Component.literal("\uE000").withStyle(style -> style.withFont(font));
+        return Component.empty().append(icon).append(" ").append(title);
+    }
+
+    /**
+     * A choice value in normal case: a translation ({@code atmosphera.options.value.<enum>.<constant>}, lower case)
+     * or the constant's name with each word capitalised ("VANILLA_PLUS" becomes "Vanilla Plus").
+     */
+    static Component[] valueNames(Class<?> enumClass) {
+        Object[] constants = enumClass.getEnumConstants();
+        Component[] names = new Component[constants.length];
+        String prefix = "atmosphera.options.value." + enumClass.getSimpleName().toLowerCase(Locale.ROOT) + ".";
+        for (int i = 0; i < constants.length; i++) {
+            String name = ((Enum<?>) constants[i]).name();
+            names[i] = Component.translatableWithFallback(prefix + name.toLowerCase(Locale.ROOT), normalCase(name));
+        }
+        return names;
+    }
+
+    static String normalCase(String constant) {
+        StringBuilder out = new StringBuilder(constant.length());
+        for (String word : constant.split("_")) {
+            if (word.isEmpty()) {
+                continue;
+            }
+            if (out.length() > 0) {
+                out.append(' ');
+            }
+            out.append(word.charAt(0)).append(word.substring(1).toLowerCase(Locale.ROOT));
+        }
+        return out.toString();
+    }
+
     /**
      * One group per TOML section, split again where a section holds several feature switches (each switch leads its
-     * own group); the "defer to shaders/mods" switches last, in a group of their own.
+     * own group). The defer switches are left out (0.9.2: they are on the Atmosphera page).
      */
     private static List<OptionGroup> groups(AtmosConfig config, AtmosConfig.Page page) {
         List<OptionGroup> groups = new ArrayList<>();
-        OptionGroup.Builder overlap = OptionGroup.createBuilder();
-        boolean anyOverlap = false;
         for (List<AtmosOption<?>> section : page.groups()) {
             OptionGroup.Builder group = OptionGroup.createBuilder();
             boolean any = false;
             for (AtmosOption<?> option : section) {
-                if (option.control == AtmosOption.Control.COLOR) {
-                    // TOML only (0.6.5): no text field on these pages.
+                if (option.isFileOnly()) {
+                    // TOML only: colours (0.6.5, no text field on these pages) and fileOnly options (0.8.3).
                     continue;
                 }
                 if (config.isOverlapSwitch(option)) {
-                    overlap.add(control(config, option));
-                    anyOverlap = true;
                     continue;
                 }
                 if (any && featureFor(config, option) != null) {
@@ -117,15 +198,24 @@ public final class OptionsPage {
                 groups.add(group.build());
             }
         }
-        if (anyOverlap) {
-            groups.add(overlap.build());
-        }
         return groups;
     }
 
     /** The library's line counts every feature; a mod's line counts its own. */
     /** The single value of the status row's control: the row only displays text and cannot be changed. */
     private enum Status { SHOWN }
+
+    /** A row that only shows a heading (and a tooltip): the status row's one-value control. */
+    private static OptionImpl<Object, Status> header(String text, String tooltip) {
+        return OptionImpl.createBuilder(Status.class, STORAGE)
+                .setName(Component.literal(text))
+                .setTooltip(Component.literal(tooltip))
+                .setControl(opt -> new CyclingControl<>(opt, Status.class, new Component[]{Component.empty()}))
+                .setImpact(OptionImpact.LOW)
+                .setBinding((data, value) -> {
+                }, data -> Status.SHOWN)
+                .build();
+    }
 
     private static OptionImpl<Object, Status> statusLine(AtmosConfig config) {
         String owner = AtmospheraLib.MOD_ID.equals(config.modId()) ? null : config.modId();
@@ -201,7 +291,7 @@ public final class OptionsPage {
                 AtmosOption o = option;
                 Class enumClass = option.enumClass;
                 return OptionImpl.createBuilder(enumClass, STORAGE).setName(name).setTooltip(tooltip)
-                        .setControl(opt -> new CyclingControl((OptionImpl) opt, enumClass))
+                        .setControl(opt -> new CyclingControl((OptionImpl) opt, enumClass, valueNames(enumClass)))
                         .setImpact(impact)
                         .setBinding((data, v) -> o.set(v), data -> o.get()).build();
             }
