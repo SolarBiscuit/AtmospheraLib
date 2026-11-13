@@ -86,6 +86,17 @@ public final class AtmosClient {
             OptionsPage.register();
         } else {
             AtmospheraLib.LOGGER.warn("No Xenon/Embeddium found: Atmosphera terrain features stay off.");
+            // 0.10.0: without Embeddium's pages, vanilla Video Settings gets a button to the library's settings screen.
+            MinecraftForge.EVENT_BUS.addListener((net.minecraftforge.client.event.ScreenEvent.Init.Post e) -> {
+                if (e.getScreen() instanceof net.minecraft.client.gui.screens.VideoSettingsScreen screen) {
+                    e.addListener(net.minecraft.client.gui.components.Button.builder(
+                                    net.minecraft.network.chat.Component.translatableWithFallback("atmosphera.options.button",
+                                            "Atmosphera..."),
+                                    b -> net.minecraft.client.Minecraft.getInstance().setScreen(
+                                            com.solarbiscuit.atmosphera.lib.options.AtmosSettingsScreen.open(screen, null)))
+                            .bounds(screen.width - 106, 6, 100, 20).build());
+                }
+            });
         }
         AtmosState.addListener((state, tier) -> {
             GpuTimers.setEnabled(LibConfig.gpuTimers.get());

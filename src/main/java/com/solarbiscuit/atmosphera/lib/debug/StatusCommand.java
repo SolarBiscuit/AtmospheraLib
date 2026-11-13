@@ -52,6 +52,35 @@ public final class StatusCommand {
         if (reloadAt > 0 && worldTicks == reloadAt * 20L) {
             com.solarbiscuit.atmosphera.lib.options.AtmosReload.reload(true);
         }
+        String toggle = com.solarbiscuit.atmosphera.lib.client.DevFlags.SETTINGS_TOGGLE;
+        if (!toggle.isEmpty() && com.solarbiscuit.atmosphera.lib.compat.AtmosCompat.hasSodiumPort()) {
+            String[] parts = toggle.split(":", 2);
+            try {
+                if (parts.length == 2 && worldTicks == Integer.parseInt(parts[0]) * 20L) {
+                    com.solarbiscuit.atmosphera.lib.options.OptionsPage.toggleForTest(parts[1]);
+                }
+            } catch (RuntimeException e) {
+                AtmospheraLib.LOGGER.warn("[dev] settings_toggle={} failed: {}", toggle, e.toString());
+            }
+        }
+        String screen = com.solarbiscuit.atmosphera.lib.client.DevFlags.SETTINGS_SCREEN;
+        if (!screen.isEmpty()) {
+            String[] parts = screen.split(":");
+            try {
+                if (parts.length == 3 && worldTicks == Integer.parseInt(parts[0]) * 20L) {
+                    AtmospheraLib.LOGGER.info("[dev] Opening the {} settings screen at {}", parts[1], parts[2]);
+                    if (("embeddium".equals(parts[1]) || "reeses".equals(parts[1]))
+                            && com.solarbiscuit.atmosphera.lib.compat.AtmosCompat.hasSodiumPort()) {
+                        com.solarbiscuit.atmosphera.lib.options.OptionsPage.openForTest(parts[2], "reeses".equals(parts[1]));
+                    } else {
+                        Minecraft.getInstance().setScreen(
+                                com.solarbiscuit.atmosphera.lib.options.AtmosSettingsScreen.open(null, parts[2]));
+                    }
+                }
+            } catch (RuntimeException e) {
+                AtmospheraLib.LOGGER.warn("[dev] settings_screen={} failed: {}", screen, e.toString());
+            }
+        }
         boolean first = !loggedFirstJoin && worldTicks == 100;
         boolean periodic = STATUS_EVERY > 0 && worldTicks % (STATUS_EVERY * 20L) == 0;
         if (first || periodic) {

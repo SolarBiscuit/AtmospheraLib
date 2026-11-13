@@ -22,7 +22,7 @@ public final class LibConfig {
     }
 
     static void init() {
-        AtmosConfig config = AtmosConfig.create(AtmospheraLib.MOD_ID, "Atmosphera");
+        AtmosConfig config = AtmosConfig.create(AtmospheraLib.MOD_ID, "AtmospheraLib"); // 0.10.0: was "Atmosphera", the sky mod's name
         config.section("general", "AtmospheraLib: shared settings for the Atmosphera mods (Gale, Torrente, Lumis).");
         gpuTimers = config.toggle("gpu_timers", false, ChangeTier.LIVE, "GPU timers",
                 "Measure the GPU time of Atmosphera's passes and write it to logs/atmospheralib-gpu.csv every 10 s.");

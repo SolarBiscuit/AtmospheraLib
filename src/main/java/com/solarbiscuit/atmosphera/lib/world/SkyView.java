@@ -16,7 +16,7 @@ import java.util.List;
 import java.util.function.IntSupplier;
 
 /**
- * The drawn sky as a map (0.8.0, for Stratos 0.4.0 "Mirror"): a latitude-longitude texture of the upper hemisphere,
+ * The drawn sky as a map (0.8.0, for Atmosphera 0.4.0 "Mirror"): a latitude-longitude texture of the upper hemisphere,
  * sky and clouds together, in the game's display values like {@code atmos_SkyColor}. Water reflections (Torrente) read
  * it with {@code vec3 atmos_skyView(vec3 dir)}; without a sky mod the function falls back to the fog-to-sky-colour
  * blend water used before.

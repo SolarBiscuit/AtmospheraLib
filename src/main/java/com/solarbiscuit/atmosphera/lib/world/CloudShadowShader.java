@@ -16,7 +16,7 @@ import java.util.List;
 /**
  * Cloud shadows in shaders (0.7.1): {@code float atmos_cloudShadow(vec3 rel)}, the share of sunlight the clouds let
  * through to a camera-relative point (1 = no cloud overhead, also without a cloud mod, at night and outside the map).
- * The cloud mod (Stratos 0.2) publishes a world-locked map of the clouds' transmittance along the sun on a horizontal
+ * The cloud mod (Atmosphera 0.2) publishes a world-locked map of the clouds' transmittance along the sun on a horizontal
  * reference plane ({@link CloudCover.Provider#shadowTexture()}); a point is projected along {@code atmos_SunDir} onto
  * that plane and looked up there.
  * <ul>

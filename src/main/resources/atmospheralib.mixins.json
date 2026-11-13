@@ -15,8 +15,13 @@
     "sodium.DefaultChunkRendererMixin",
     "sodium.FluidRendererMixin",
     "sodium.MaterialMixin",
+    "sodium.OptionPageFrameMixin",
+    "sodium.ReesesOptionPageFrameMixin",
+    "sodium.ReesesScreenAccessor",
+    "sodium.SearchTextFieldModelAccessor",
     "sodium.ShaderChunkRendererMixin",
     "sodium.ShaderLoaderMixin",
+    "sodium.VideoOptionsScreenAccessor",
     "voxy.VoxyShaderLoaderMixin"
   ],
   "injectors": {

@@ -56,6 +56,8 @@ public final class OptionsPage {
     }
 
     public static void register() {
+        // 0.10.0: while the search box holds text, closed groups show their matching options.
+        GroupState.searching = OptionsPage::searching;
         OptionGUIConstructionEvent.BUS.addListener(event -> {
             try {
                 for (OptionPage page : build()) {
@@ -67,36 +69,81 @@ public final class OptionsPage {
         });
     }
 
+    /** Dev (settings_toggle): opens or closes a group as a click on its title row does, and re-lays the open screen. */
+    public static void toggleForTest(String groupId) {
+        GroupState.toggle(groupId);
+        GroupHeaderControl.rebuildLater();
+        AtmospheraLib.LOGGER.info("[dev] Group {} is now {}", groupId, GroupState.isOpen(groupId) ? "open" : "closed");
+    }
+
+    /** Dev (settings_screen): opens Video Settings at a mod's main page; {@code reeses} opens Xenon's Reese's screen. */
+    public static void openForTest(String modId, boolean reeses) {
+        for (AtmosConfig config : AtmosConfig.all()) {
+            if (config.modId().equals(modId)) {
+                Component title = withIcon(modId, Component.translatableWithFallback(
+                        "atmosphera.options.page." + modId + ".main", config.title()));
+                if (reeses) {
+                    com.solarbiscuit.atmosphera.lib.mixin.sodium.ReesesScreenAccessor.atmos$selectedTab().set(title);
+                } else {
+                    com.solarbiscuit.atmosphera.lib.mixin.sodium.VideoOptionsScreenAccessor.atmos$selectedTab().set(title);
+                }
+            }
+        }
+        Minecraft.getInstance().setScreen(reeses ? new me.jellysquid.mods.sodium.client.gui.reesesoptions.client.gui.SodiumVideoOptionsScreen(null)
+                : new me.jellysquid.mods.sodium.client.gui.SodiumOptionsGUI(null));
+    }
+
+    private static boolean searching() {
+        if (Minecraft.getInstance().screen instanceof me.jellysquid.mods.sodium.client.gui.reesesoptions.client.gui.SodiumVideoOptionsScreen) {
+            String text = com.solarbiscuit.atmosphera.lib.mixin.sodium.ReesesScreenAccessor.atmos$lastSearch().get();
+            return text != null && !text.isBlank();
+        }
+        if (Minecraft.getInstance().screen instanceof org.embeddedt.embeddium.gui.EmbeddiumVideoOptionsScreen screen) {
+            Object model = ((com.solarbiscuit.atmosphera.lib.mixin.sodium.VideoOptionsScreenAccessor) screen).atmos$searchModel();
+            String text = ((com.solarbiscuit.atmosphera.lib.mixin.sodium.SearchTextFieldModelAccessor) model).atmos$text();
+            return text != null && !text.isBlank();
+        }
+        return false;
+    }
+
     private static boolean loggedDefer;
 
+    /** The configs in page order (0.9.2: the library first, then the mods by name; they register in parallel). */
+    static List<AtmosConfig> ordered() {
+        return AtmosConfig.ordered();
+    }
+
+    /** Server views are shown to the host of a singleplayer or LAN world only (0.10.0). */
+    static boolean showServerGroups() {
+        return Minecraft.getInstance().hasSingleplayerServer();
+    }
+
     private static List<OptionPage> build() {
-        // 0.9.2: the defer switches of every mod, for the Atmosphera page.
-        OptionGroup.Builder defer = OptionGroup.createBuilder().add(header("Defer to shaderpacks and other mods",
-                "Each switch below turns its feature off while a shaderpack or another mod already provides the same "
-                        + "effect. Switched off, the feature is forced on where that is technically possible."));
-        boolean anyDefer = false;
+        List<AtmosConfig> configs = ordered();
+        // 0.9.2: the defer switches of every mod, in one group on the library's page (0.10.0: a heading per mod).
+        String deferId = GroupState.id(AtmospheraLib.MOD_ID, "main", "defer");
+        OptionGroup.Builder defer = OptionGroup.createBuilder();
+        defer.add(groupHeader(deferId, Component.translatableWithFallback("atmosphera.options.group.atmospheralib.defer",
+                        "Defer to shaderpacks and other mods"),
+                "Each switch in this group turns its feature off while a shaderpack or another mod already provides the "
+                        + "same effect. Switched off, the feature is forced on where that is technically possible.", null, null));
         int deferCount = 0;
-        // 0.9.2: a fixed order (mods register their configs in parallel at startup, so the tabs moved between
-        // launches): the library's page first, then the mods by name.
-        List<AtmosConfig> configs = new ArrayList<>(AtmosConfig.all());
-        configs.sort(java.util.Comparator.comparing((AtmosConfig c) -> !AtmospheraLib.MOD_ID.equals(c.modId()))
-                .thenComparing(AtmosConfig::title, String.CASE_INSENSITIVE_ORDER));
         for (AtmosConfig config : configs) {
-            for (AtmosConfig.Page page : config.pages()) {
-                for (List<AtmosOption<?>> section : page.groups()) {
-                    for (AtmosOption<?> option : section) {
-                        if (!option.isFileOnly() && config.isOverlapSwitch(option)) {
-                            defer.add(control(config, option));
-                            anyDefer = true;
-                            deferCount++;
-                        }
+            boolean heading = false;
+            for (AtmosOption<?> option : config.options()) {
+                if (!option.isFileOnly() && config.isOverlapSwitch(option)) {
+                    if (!heading) {
+                        heading = true;
+                        defer.add(bound(subheadingRow(config.title()), deferId));
                     }
+                    defer.add(bound(control(config, option), deferId));
+                    deferCount++;
                 }
             }
         }
         if (!loggedDefer) {
             loggedDefer = true;
-            AtmospheraLib.LOGGER.info("[Atmosphera] Video Settings: {} pages, {} defer switches on the Atmosphera page",
+            AtmospheraLib.LOGGER.info("[Atmosphera] Video Settings: {} pages, {} defer switches on the AtmospheraLib page",
                     configs.size(), deferCount);
         }
         List<OptionPage> pages = new ArrayList<>();
@@ -108,8 +155,25 @@ public final class OptionsPage {
                 if (first) {
                     groups.add(OptionGroup.createBuilder().add(statusLine(config)).build());
                 }
-                groups.addAll(groups(config, page));
-                if (lib && first && anyDefer) {
+                for (AtmosConfig.Group group : page.groups()) {
+                    OptionGroup built = group(config, page.key(), group);
+                    if (built != null) {
+                        groups.add(built);
+                    }
+                }
+                if (first && showServerGroups()) {
+                    for (AtmosConfig view : AtmosConfig.serverViews(config.modId())) {
+                        for (AtmosConfig.Page viewPage : view.pages()) {
+                            for (AtmosConfig.Group group : viewPage.groups()) {
+                                OptionGroup built = group(view, "main", group);
+                                if (built != null) {
+                                    groups.add(built);
+                                }
+                            }
+                        }
+                    }
+                }
+                if (lib && first && deferCount > 0) {
                     groups.add(defer.build());
                 }
                 if (groups.isEmpty()) {
@@ -136,69 +200,112 @@ public final class OptionsPage {
         } catch (Throwable e) {
             return title;
         }
-        MutableComponent icon = Component.literal("\uE000").withStyle(style -> style.withFont(font));
+        MutableComponent icon = Component.literal("").withStyle(style -> style.withFont(font));
         return Component.empty().append(icon).append(" ").append(title);
     }
 
     /**
-     * A choice value in normal case: a translation ({@code atmosphera.options.value.<enum>.<constant>}, lower case)
-     * or the constant's name with each word capitalised ("VANILLA_PLUS" becomes "Vanilla Plus").
+     * A choice value in normal case: a translation ({@code atmosphera.options.value.<modid>.<enum>.<constant>}, lower
+     * case; 0.10.0 adds the mod id, so two mods' enums of the same name do not share keys) or the constant's name with
+     * each word capitalised ("VANILLA_PLUS" becomes "Vanilla Plus").
      */
-    static Component[] valueNames(Class<?> enumClass) {
+    static Component[] valueNames(String modId, Class<?> enumClass) {
         Object[] constants = enumClass.getEnumConstants();
         Component[] names = new Component[constants.length];
-        String prefix = "atmosphera.options.value." + enumClass.getSimpleName().toLowerCase(Locale.ROOT) + ".";
+        String prefix = "atmosphera.options.value." + modId + "." + enumClass.getSimpleName().toLowerCase(Locale.ROOT) + ".";
         for (int i = 0; i < constants.length; i++) {
             String name = ((Enum<?>) constants[i]).name();
-            names[i] = Component.translatableWithFallback(prefix + name.toLowerCase(Locale.ROOT), normalCase(name));
+            names[i] = Component.translatableWithFallback(prefix + name.toLowerCase(Locale.ROOT), AtmosConfig.normalCase(name));
         }
         return names;
     }
 
-    static String normalCase(String constant) {
-        StringBuilder out = new StringBuilder(constant.length());
-        for (String word : constant.split("_")) {
-            if (word.isEmpty()) {
-                continue;
-            }
-            if (out.length() > 0) {
-                out.append(' ');
-            }
-            out.append(word.charAt(0)).append(word.substring(1).toLowerCase(Locale.ROOT));
-        }
-        return out.toString();
+    /** A group's title, translated ({@code atmosphera.options.group.<modid>.<key>}). */
+    static Component groupTitle(AtmosConfig config, AtmosConfig.Group group) {
+        return Component.translatableWithFallback("atmosphera.options.group." + config.modId() + "." + group.key(), group.title());
     }
 
     /**
-     * One group per TOML section, split again where a section holds several feature switches (each switch leads its
-     * own group). The defer switches are left out (0.9.2: they are on the Atmosphera page).
+     * One dropdown (0.10.0): its title row (carrying the master switch, if any), then its options and subheadings, each
+     * bound to the group so the frame hides them while it is closed. Overlap switches are left out (they are in the
+     * library page's defer group). Null when nothing in it has a control.
      */
-    private static List<OptionGroup> groups(AtmosConfig config, AtmosConfig.Page page) {
-        List<OptionGroup> groups = new ArrayList<>();
-        for (List<AtmosOption<?>> section : page.groups()) {
-            OptionGroup.Builder group = OptionGroup.createBuilder();
-            boolean any = false;
-            for (AtmosOption<?> option : section) {
-                if (option.isFileOnly()) {
-                    // TOML only: colours (0.6.5, no text field on these pages) and fileOnly options (0.8.3).
-                    continue;
-                }
-                if (config.isOverlapSwitch(option)) {
-                    continue;
-                }
-                if (any && featureFor(config, option) != null) {
-                    groups.add(group.build());
-                    group = OptionGroup.createBuilder();
-                    any = false;
-                }
-                group.add(control(config, option));
-                any = true;
+    private static OptionGroup group(AtmosConfig config, String pageKey, AtmosConfig.Group group) {
+        String id = GroupState.id(config.modId(), pageKey, group.key());
+        List<OptionImpl<Object, ?>> rows = new ArrayList<>();
+        boolean pendingHeading = false;
+        String headingTitle = null;
+        for (Object entry : group.entries()) {
+            if (entry instanceof AtmosConfig.Subheading heading) {
+                pendingHeading = true;
+                headingTitle = heading.title() == null ? null : Component.translatableWithFallback(
+                        "atmosphera.options.subheader." + config.modId() + "." + heading.key(), heading.title()).getString();
+                continue;
             }
-            if (any) {
-                groups.add(group.build());
+            AtmosOption<?> option = (AtmosOption<?>) entry;
+            if (option.isFileOnly() || config.isOverlapSwitch(option)) {
+                continue;
             }
+            if (pendingHeading && (headingTitle != null || !rows.isEmpty())) {
+                rows.add(subheadingRow(headingTitle == null ? "" : headingTitle));
+            }
+            pendingHeading = false;
+            rows.add(control(config, option));
         }
-        return groups;
+        AtmosOption<Boolean> master = group.master() != null && !group.master().isFileOnly() ? group.master() : null;
+        if (rows.isEmpty() && master == null) {
+            return null;
+        }
+        String tooltip = group.server()
+                ? "Settings of this world's server: shown because you host it (singleplayer or LAN). On a multiplayer "
+                + "server its owner sets them in config/Atmosphera/" + config.modId() + "-server.toml."
+                : rows.isEmpty() ? "" : "Click to show or hide the " + rows.size() + " settings in this group.";
+        OptionGroup.Builder builder = OptionGroup.createBuilder();
+        builder.add(groupHeader(id, groupTitle(config, group), tooltip, config, master));
+        for (OptionImpl<Object, ?> row : rows) {
+            builder.add(bound(row, id));
+        }
+        return builder.build();
+    }
+
+    private static OptionImpl<Object, ?> bound(OptionImpl<Object, ?> row, String groupId) {
+        GroupState.bind(row, groupId);
+        return row;
+    }
+
+    /**
+     * A group's title row (0.10.0). With a master switch its value is that switch (the tick box on the right);
+     * without one its value is a constant false that never changes.
+     */
+    private static OptionImpl<Object, Boolean> groupHeader(String groupId, Component title, String tooltip,
+                                                         AtmosConfig config, AtmosOption<Boolean> master) {
+        AtmosFeature feature = master == null ? null : featureFor(config, master);
+        Component name = feature == null ? title
+                : LiveText.of(() -> title.getString() + (feature.isEnabled() && !feature.isActive() ? " (off)" : ""));
+        Component fullTooltip = master == null ? Component.literal(tooltip)
+                : Component.empty().append(master.displayTooltip())
+                .append(Component.literal(tooltip.isEmpty() ? "" : "\n\n" + tooltip));
+        OptionImpact impact = master == null ? OptionImpact.LOW : switch (master.tier) {
+            case LIVE -> OptionImpact.LOW;
+            case RECOMPILE -> OptionImpact.MEDIUM;
+            case REMESH -> OptionImpact.HIGH;
+        };
+        return OptionImpl.createBuilder(boolean.class, STORAGE)
+                .setName(name)
+                .setTooltip(fullTooltip)
+                .setControl(opt -> new GroupHeaderControl(opt, groupId, name, master != null))
+                .setImpact(impact)
+                .setBinding((data, value) -> {
+                    if (master != null) {
+                        master.set(value);
+                    }
+                }, data -> master != null && master.get())
+                .build();
+    }
+
+    /** A heading inside a group: a label row that cannot be changed. */
+    private static OptionImpl<Object, Status> subheadingRow(String text) {
+        return header(text.isEmpty() ? " " : "— " + text + " —", text.isEmpty() ? " " : text);
     }
 
     /** The library's line counts every feature; a mod's line counts its own. */
@@ -291,7 +398,7 @@ public final class OptionsPage {
                 AtmosOption o = option;
                 Class enumClass = option.enumClass;
                 return OptionImpl.createBuilder(enumClass, STORAGE).setName(name).setTooltip(tooltip)
-                        .setControl(opt -> new CyclingControl((OptionImpl) opt, enumClass, valueNames(enumClass)))
+                        .setControl(opt -> new CyclingControl((OptionImpl) opt, enumClass, valueNames(config.modId(), enumClass)))
                         .setImpact(impact)
                         .setBinding((data, v) -> o.set(v), data -> o.get()).build();
             }

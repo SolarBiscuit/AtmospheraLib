@@ -3,7 +3,7 @@ package com.solarbiscuit.atmosphera.lib.world;
 import com.solarbiscuit.atmosphera.lib.feature.AtmosFeature;
 
 /**
- * Clouds as other mods see them (0.7.0). A cloud mod (Stratos) registers a {@link Provider}; consumers (Lumis's rays,
+ * Clouds as other mods see them (0.7.0). A cloud mod (Atmosphera) registers a {@link Provider}; consumers (Lumis's rays,
  * lens flare and sky cover) read how much of the sun is hidden and, in post passes, a screen-space cloud
  * transmittance, without depending on the cloud mod. With no provider, or while its feature is off, everything reads
  * "clear sky": cover 0, transmittance 1.
@@ -80,7 +80,7 @@ public final class CloudCover {
     }
 
     /**
-     * Lightning inside the clouds (0.8.0, Stratos 0.5.0 "Storm"): 0 without a flash, up to about 1.3 for a bolt
+     * Lightning inside the clouds (0.8.0, Atmosphera 0.5.0 "Storm"): 0 without a flash, up to about 1.3 for a bolt
      * nearby. Flickers over a few frames. Lumis and others can brighten the sky light by it. Any thread.
      */
     public static float flash() {

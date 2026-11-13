@@ -69,7 +69,8 @@ The figures below are the project's own measurements, taken with the in-repo sce
 | 0.6.x | Temporal | Reprojection and history targets, dev clock override, config folder |
 | 0.7.x | Sky | Cloud, sky and Distant Horizons contracts, cloud shadows, the `SKY` stage and sky colour |
 | 0.8.x | Reload and sky view | `/atmosphera reload` and the reload key, the sky-view map for water and terrain, lightning flash for other mods, Atmospherics in the overlap list |
-| 0.9.x | Common side and options (**current: 0.9.3**) | Server-safe clock, wind and Weather service; settings screen polish (mod icons, one "defer" category, fixed page order); `SkySource.nightLight` |
+| 0.9.x | Common side and options | Server-safe clock, wind and Weather service; settings screen polish (mod icons, one "defer" category, fixed page order); `SkySource.nightLight` |
+| 0.10.x (**current: 0.10.1**) | Settings | Settings in dropdown groups, also on Xenon's Reese's-style options screen; the vanilla settings screen; `SkySource.sunColor` and `atmos_SunColor` |
 | Unscheduled | Optional | Upload ring†, Fabulous compositing†, only if measured |
 
 Dates are not promised. Each feature release is a minor version (0.X.0). Version 1.0.0 is only used when the project is declared complete.
@@ -85,7 +86,7 @@ Dates are not promised. Each feature release is a minor version (0.X.0). Version
 
 1. Place `atmospheralib-<version>-mc1.20.1-forge.jar` in `mods`, next to an Embeddium-based terrain renderer.
 2. Install the mods that use it: Lumis, Torrente and Gale.
-3. Options are in the Atmosphera tab of Video Settings, and in `config/Atmosphera/` (before AtmospheraLib 0.6.7: `config/SolConfig/atmosphera/`, moved across automatically).
+3. Options are in the Atmosphera tab of Video Settings, and in `config/Atmosphera/` (before AtmospheraLib 0.6.7: `config/SolConfig/atmosphera/`, moved across automatically). Settings are grouped in dropdowns (closed by default, and remembered). Without Xenon or Embeddium, the library's own settings screen (the "Atmosphera..." button in Video Settings, or Config in the Mods list) shows the same groups.
 
 ## Building
 

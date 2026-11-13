@@ -8,7 +8,7 @@ import java.lang.reflect.Method;
 
 /**
  * Distant Horizons' LOD depth for post passes (0.7.0). DH draws its LODs with a depth texture and a projection of its
- * own (other near and far planes), so a pass that must stop at distant terrain (Stratos clouds, later Lumis) reads that
+ * own (other near and far planes), so a pass that must stop at distant terrain (Atmosphera clouds, later Lumis) reads that
  * texture next to the main depth. Everything is reached by reflection, except {@link DhRenderListener}, which is
  * compiled against stand-ins of two DH API classes ({@code src/stubs}) and loaded only when DH is installed.
  * <p>

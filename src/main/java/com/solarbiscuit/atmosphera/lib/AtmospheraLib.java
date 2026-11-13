@@ -10,7 +10,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * AtmospheraLib: the shared library of the Atmosphera mods (Gale, Torrente, Lumis, Stratos, Vapora).
+ * AtmospheraLib: the shared library of the Atmosphera mods (Gale, Torrente, Lumis, Atmosphera, Stratos).
  * The rendering is client-only. Since 0.9.0 a small common side also loads on a dedicated server: the world clock, the
  * wind and weather services, and the networking that carries the server's weather and settings to clients. The
  * library stays optional on both sides.

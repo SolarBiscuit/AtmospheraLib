@@ -11,7 +11,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * The weather service (0.9.0): what kind of weather it is, how heavy, and what comes next, in one place, so the
  * Atmosphera mods agree (clouds, wind, water, wetness, precipitation). Common code: it works on a server too.
  * <p>
- * Vanilla only knows "raining" and "thundering", and its rain level always reaches 1. A weather mod (Vapora) decides
+ * Vanilla only knows "raining" and "thundering", and its rain level always reaches 1. A weather mod (Stratos) decides
  * more on the server: a type and an intensity for each spell, and when the next change comes. It hands the state to
  * {@link #publish}; the library keeps it for that level and sends it to every client there (and to players as they
  * arrive). On a client the state of its level comes from the server's packet; without one (a server without a
@@ -142,7 +142,7 @@ public final class Weather {
 
     /**
      * The default: vanilla's levels. Ordinary rain is steady rain at 0.8; thunder raises it to a full storm. The same
-     * weight Stratos gives rain when no weather mod speaks.
+     * weight Atmosphera gives rain when no weather mod speaks.
      */
     private static void vanilla(Level level, float partialTick, Sample out) {
         float rain = level.getRainLevel(partialTick);

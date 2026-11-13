@@ -42,6 +42,15 @@ public final class DevFlags {
      * and shaders) as {@code /atmosphera reload shaders} would, and logs the summary. 0 = off.
      */
     public static final int RELOAD_AT;
+    /**
+     * Test of the settings screens ({@code settings_screen=S:kind:modid}, 0.10.0): S seconds into the first world,
+     * opens Video Settings (kind {@code embeddium}; {@code reeses} for Xenon's Reese's-style screen, 0.10.1) or the
+     * library's own screen ({@code vanilla}) at that mod's page.
+     * Empty = off.
+     */
+    public static final String SETTINGS_SCREEN;
+    /** Test of a group's title row ({@code settings_toggle=S:modid/page/group}, 0.10.1): toggles it S seconds in. */
+    public static final String SETTINGS_TOGGLE;
 
     static {
         Properties file = new Properties();
@@ -102,6 +111,8 @@ public final class DevFlags {
             reloadAt = 0;
         }
         RELOAD_AT = reloadAt;
+        SETTINGS_SCREEN = file.getProperty("settings_screen", "").trim();
+        SETTINGS_TOGGLE = file.getProperty("settings_toggle", "").trim();
     }
 
     private DevFlags() {

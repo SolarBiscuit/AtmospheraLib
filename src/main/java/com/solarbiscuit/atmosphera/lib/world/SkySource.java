@@ -3,7 +3,7 @@ package com.solarbiscuit.atmosphera.lib.world;
 import com.solarbiscuit.atmosphera.lib.feature.AtmosFeature;
 
 /**
- * The drawn sky's colours (0.7.2). A sky mod (Stratos 0.3 "Firmament") registers a {@link Provider}; while its feature
+ * The drawn sky's colours (0.7.2). A sky mod (Atmosphera 0.3 "Firmament") registers a {@link Provider}; while its feature
  * is active, the frame block's {@code atmos_SkyColor} is the provider's sky colour above the camera instead of
  * vanilla's {@code ClientLevel.getSkyColor}, so water reflections (Torrente) and light (Lumis) follow the sky that is
  * actually on screen. The fog colour stays the game's (biome fog, Atmospherics).
@@ -30,6 +30,15 @@ public final class SkySource {
         default boolean nightLight(float[] rgb) {
             return false;
         }
+
+        /**
+         * The colour of direct sunlight at a height (0.10.1): the sun's light after its path through the sky mod's
+         * atmosphere to {@code altitude} (blocks, world y), linear, 1 = full noon sun. Reddens and dims towards sunset
+         * and goes to 0 once the Earth's shadow covers that height. False when the sky mod does not model it.
+         */
+        default boolean sunColor(float altitude, float[] rgb) {
+            return false;
+        }
     }
 
     private static volatile Provider provider;
@@ -37,6 +46,7 @@ public final class SkySource {
     private static final float[] RGB = new float[3];
     private static final float[] TINT = new float[3];
     private static final float[] NIGHT = new float[3];
+    private static final float[] SUN = new float[3];
 
     private SkySource() {
     }
@@ -89,6 +99,21 @@ public final class SkySource {
         out[0] = NIGHT[0];
         out[1] = NIGHT[1];
         out[2] = NIGHT[2];
+        return true;
+    }
+
+    /**
+     * Fills out[0..2] with the colour of sunlight at {@code altitude} (0.10.1, see {@link Provider#sunColor}) and
+     * returns true; otherwise leaves {@code out} alone and returns false (no sky mod, or it does not model it). Shared
+     * by clouds and light (Lumis) so both have one sunset colour. Render thread.
+     */
+    public static boolean sunColor(float altitude, float[] out) {
+        if (!active() || !provider.sunColor(altitude, SUN)) {
+            return false;
+        }
+        out[0] = SUN[0];
+        out[1] = SUN[1];
+        out[2] = SUN[2];
         return true;
     }
 }

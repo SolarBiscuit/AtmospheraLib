@@ -73,6 +73,8 @@ public final class FrameUniforms {
             out[3] = fog[3];
         });
         lib("atmos_SkyColor", "rgb: sky colour at the camera", FrameUniforms::writeSky);
+        lib("atmos_SunColor", "rgb: sunlight colour at the camera from the sky mod (1 = noon sun), w: 1 when modelled (0.10.1)",
+                FrameUniforms::writeSunColor);
         lib("atmos_Screen", "x: 1/width, y: 1/height, z: width, w: height", out -> {
             var target = Minecraft.getInstance().getMainRenderTarget();
             out[0] = 1f / Math.max(1, target.width);
@@ -329,6 +331,19 @@ public final class FrameUniforms {
         out[1] = com.solarbiscuit.atmosphera.lib.world.SunSource.dirY();
         out[2] = com.solarbiscuit.atmosphera.lib.world.SunSource.dirZ();
         out[3] = 1f - level.getSkyDarken(partial) / 15f;
+    }
+
+    /** 0.10.1: the sky mod's sunlight colour at the camera (white with w = 0 when no sky mod models it). */
+    private static void writeSunColor(float[] out) {
+        var camera = Minecraft.getInstance().gameRenderer.getMainCamera();
+        if (com.solarbiscuit.atmosphera.lib.world.SkySource.sunColor((float) camera.getPosition().y, out)) {
+            out[3] = 1f;
+            return;
+        }
+        out[0] = 1f;
+        out[1] = 1f;
+        out[2] = 1f;
+        out[3] = 0f;
     }
 
     private static void writeSky(float[] out) {
