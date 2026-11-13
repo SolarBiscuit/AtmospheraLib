@@ -68,12 +68,14 @@ public final class GlslPrograms {
     }
 
     /**
-     * {@code #version 460 core} plus the AtmosFrame block with an explicit binding, for GL 4.6 post passes (samplers
-     * may use {@code layout(binding = N)}, and {@code textureGather}, {@code textureQueryLevels} and the other 4.x
-     * built-ins are available).
+     * {@code #version 460 core} plus the AtmosFrame block, for GL 4.6 post passes (samplers may use
+     * {@code layout(binding = N)}, and {@code textureGather}, {@code textureQueryLevels} and the other 4.x built-ins
+     * are available). The block has no explicit binding: {@link #compile} attaches it with glUniformBlockBinding, as
+     * for {@link #header()} (0.9.3: the explicit binding together with that call crashed the AMD OpenGL driver of
+     * 2026-11 at the first draw).
      */
     public static String header460() {
-        return "#version 460 core\n" + FrameUniforms.glslBlockWithBinding();
+        return "#version 460 core\n" + FrameUniforms.glslBlock();
     }
 
     /** Draws one triangle covering the viewport (use with {@link #FULLSCREEN_VERTEX}). Restores the VAO binding. */
