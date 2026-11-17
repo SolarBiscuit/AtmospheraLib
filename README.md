@@ -6,7 +6,9 @@
 
 AtmospheraLib is the shared rendering library of the [Atmosphera](https://github.com/SolarBiscuit/Atmosphera) suite for Minecraft 1.20.1 on Forge. It patches the terrain shaders of a Sodium-port renderer (Embeddium or Xenon) once, and gives [Lumis](https://github.com/SolarBiscuit/Lumis), [Torrente](https://github.com/SolarBiscuit/Torrente) and [Gale](https://github.com/SolarBiscuit/Gale) a common set of spare vertex bits, frame uniforms, scene copies, shared world data and a wind and clock service. The three feature mods stay thin because the library owns everything they share.
 
-> **Client-only.** AtmospheraLib is never required on a server: on a dedicated server it logs that it is inactive and does nothing. Without a Sodium-port terrain renderer it also stays inactive.
+> **Server side.** Since 0.9.0 AtmospheraLib also runs on a dedicated server, where it only carries the shared weather and the settings handshake between server and clients (no rendering). It is optional there: a client with it joins a server without it, and the other way round. Gale and Stratos need it on the server to send their settings and weather. Without a Sodium-port terrain renderer its client side stays inactive.
+>
+> **Mix and match.** Every family mod needs only AtmospheraLib: install any combination of Atmosphera, Lumis, Torrente, Gale and Stratos (see "Install combinations" in the suite README).
 
 ## Features
 

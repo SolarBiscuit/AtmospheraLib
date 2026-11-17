@@ -167,7 +167,11 @@ public final class VoxyTextPatch {
         if (problem(FRAGMENT_ID, source) != null) return null;
         Matcher write = lastOutColour(source);
         String value = write.group(1).trim();
+        // 0.11.1: inside the shader-pack guard like the vertex hook; under PATCHED_SHADER the original write stays
+        // (the hook's types and varyings are only declared outside it, so the fragment shader did not compile there).
         String hook = """
+
+                #ifndef PATCHED_SHADER
                 {// AtmospheraLib Voxy text patch
                     VoxyExtFragment voxyTpF;
                     voxyTpF.colour = %1$s;
@@ -197,6 +201,9 @@ public final class VoxyTextPatch {
                 #endif
                     outColour = voxyTpF.colour;
                 }
+                #else
+                    outColour = %1$s;
+                #endif
                 """.formatted(value);
         //Replace the write itself, so the value expression is evaluated once, in its original place
         String out = source.substring(0, write.start()) + hook + source.substring(write.end());

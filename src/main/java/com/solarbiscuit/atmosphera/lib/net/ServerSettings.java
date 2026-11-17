@@ -29,6 +29,23 @@ public final class ServerSettings {
         PUBLISHERS.put(modId, values);
     }
 
+    /**
+     * 0.11.0: re-sends a mod's settings to every player whenever Forge reloads {@code spec} (its server config edited on
+     * disk). Register on the mod's own bus in its constructor, next to {@link #publish}.
+     */
+    public static void resendOnReload(net.minecraftforge.eventbus.api.IEventBus modBus, String modId,
+                                      net.minecraftforge.common.ForgeConfigSpec spec) {
+        modBus.addListener((net.minecraftforge.fml.event.config.ModConfigEvent.Reloading e) -> {
+            if (e.getConfig().getSpec() == spec) {
+                MinecraftServer server = net.minecraftforge.server.ServerLifecycleHooks.getCurrentServer();
+                if (server != null) {
+                    // The reload comes from the file watcher's thread; players are sent to from the server thread.
+                    server.execute(() -> resend(server, modId));
+                }
+            }
+        });
+    }
+
     /** Server: sends a mod's settings to everyone again, after its server config changed. */
     public static void resend(MinecraftServer server, String modId) {
         Supplier<Map<String, Float>> values = PUBLISHERS.get(modId);

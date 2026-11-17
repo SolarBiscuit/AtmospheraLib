@@ -101,6 +101,8 @@ public final class VoxyBridge {
     /** NeoVoxy's LOD extension API version (0 when there is none). */
     static volatile int apiVersion;
     private static final java.util.List<Runnable> BEFORE_DRAW = new java.util.concurrent.CopyOnWriteArrayList<>();
+    /** 0.11.1: the same actions as an array, read per LOD draw without an iterator. */
+    private static volatile Runnable[] beforeDrawArray = new Runnable[0];
 
     public static void setLodEmitters(LodEmitters handler) {
         lodEmitters = handler;
@@ -173,6 +175,7 @@ public final class VoxyBridge {
     /** Runs right before every LOD draw on the render thread (bind textures the LOD snippets sample). */
     public static void addBeforeLodDraw(Runnable action) {
         BEFORE_DRAW.add(action);
+        beforeDrawArray = BEFORE_DRAW.toArray(new Runnable[0]);
     }
 
     /** Asks NeoVoxy to rebuild its LOD renderer (meshes included), for example to collect emitters again. */
@@ -308,8 +311,9 @@ public final class VoxyBridge {
     /** Before every LOD draw: the AtmosFrame buffer must be current and bound (Xenon may not have drawn this frame). */
     static void beforeLodDraw() {
         FrameUniforms.update(AtmosClient.frame());
-        for (Runnable action : BEFORE_DRAW) {
-            action.run();
+        Runnable[] actions = beforeDrawArray;
+        for (int i = 0; i < actions.length; i++) {
+            actions[i].run();
         }
     }
 

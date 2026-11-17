@@ -64,7 +64,10 @@ public final class PackProfiles {
                     if (e.getKey().startsWith("_")) {
                         continue;
                     }
-                    Capability cap = Capability.valueOf(e.getKey());
+                    Capability cap = capability(e.getKey());
+                    if (cap == null) {
+                        continue;
+                    }
                     for (JsonElement id : e.getValue().getAsJsonArray()) {
                         mods.computeIfAbsent(cap, k -> new ArrayList<>()).add(id.getAsString());
                     }
@@ -100,7 +103,7 @@ public final class PackProfiles {
             values.putAll(pack.options());
             Map<Capability, String> provided = new EnumMap<>(Capability.class);
             for (Map.Entry<Capability, JsonElement> e : profile.capabilities().entrySet()) {
-                if (test(e.getValue(), values)) {
+                if (safeTest(profile.name(), e.getValue(), values)) {
                     provided.put(e.getKey(), e.getValue().toString());
                 }
             }
@@ -118,9 +121,40 @@ public final class PackProfiles {
         }
         Map<Capability, JsonElement> caps = new EnumMap<>(Capability.class);
         for (Map.Entry<String, JsonElement> e : json.getAsJsonObject("capabilities").entrySet()) {
-            caps.put(Capability.valueOf(e.getKey()), e.getValue());
+            Capability cap = capability(e.getKey());
+            if (cap != null) {
+                caps.put(cap, e.getValue());
+            }
         }
         return new Profile(json.get("name").getAsString(), Pattern.compile(json.get("match").getAsString()), defaults, caps);
+    }
+
+    /** 0.11.1: a capability by name, or null (logged) for one this version does not know; the rest still load. */
+    private static Capability capability(String name) {
+        try {
+            return Capability.valueOf(name);
+        } catch (IllegalArgumentException unknown) {
+            AtmospheraLib.LOGGER.warn("Pack profiles: unknown capability {} skipped", name);
+            return null;
+        }
+    }
+
+    private static final java.util.Set<String> BAD_PROFILES = java.util.concurrent.ConcurrentHashMap.newKeySet();
+
+    /**
+     * 0.11.1: a malformed condition (not an object, no "define", a wrong value type) counts as false and is logged
+     * once; it threw from the once-a-second environment probe, on the client tick, and stopped the game.
+     */
+    private static boolean safeTest(String profile, JsonElement element, Map<String, String> values) {
+        try {
+            return test(element, values);
+        } catch (RuntimeException e) {
+            if (BAD_PROFILES.add(profile)) {
+                AtmospheraLib.LOGGER.warn("Pack profile {} has a malformed condition ({}); it counts as false", profile,
+                        e.toString());
+            }
+            return false;
+        }
     }
 
     private static boolean test(JsonElement element, Map<String, String> values) {

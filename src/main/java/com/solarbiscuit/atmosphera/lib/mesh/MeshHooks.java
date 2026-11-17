@@ -26,19 +26,28 @@ public final class MeshHooks {
     public static synchronized void registerBlock(AtmosFeature feature, BlockMeshHook hook) {
         requireMesh(feature);
         BLOCK.add(new BlockEntry(feature, hook));
+        blockView = List.copyOf(BLOCK);
     }
 
     public static synchronized void registerFluid(AtmosFeature feature, FluidMeshHook hook) {
         requireMesh(feature);
         FLUID.add(new FluidEntry(feature, hook));
+        fluidView = List.copyOf(FLUID);
     }
 
-    public static synchronized List<BlockEntry> blockHooks() {
-        return List.copyOf(BLOCK);
+    /**
+     * 0.11.1: immutable views, replaced on each registration, so readers (Voxy's bake threads, per block state) take no
+     * lock and copy nothing.
+     */
+    private static volatile List<BlockEntry> blockView = List.of();
+    private static volatile List<FluidEntry> fluidView = List.of();
+
+    public static List<BlockEntry> blockHooks() {
+        return blockView;
     }
 
-    public static synchronized List<FluidEntry> fluidHooks() {
-        return List.copyOf(FLUID);
+    public static List<FluidEntry> fluidHooks() {
+        return fluidView;
     }
 
     /**

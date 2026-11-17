@@ -34,7 +34,8 @@ public final class DhBridge {
 
     static volatile float near;
     static volatile float far;
-    static volatile long lastRenderFrame = Long.MIN_VALUE;
+    /** 0.11.1: far in the past without overflow ({@code frame - Long.MIN_VALUE} wrapped negative: "rendering"). */
+    static volatile long lastRenderFrame = -1_000_000L;
 
     private DhBridge() {
     }

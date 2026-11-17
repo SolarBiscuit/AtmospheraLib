@@ -134,11 +134,7 @@ public final class ShaderPatcher {
                 vec3 atmos_worldPos(vec3 relativePos) {
                     return relativePos + atmos_CameraPos.xyz;
                 }
-                // Rec. 709 luminance.
-                float atmos_lum(vec3 c) {
-                    return dot(c, vec3(0.2126, 0.7152, 0.0722));
-                }
-                """;
+                """ + ShaderLibrary.SURFACE;
     }
 
     private static String patchVertex(String source) {

@@ -71,7 +71,8 @@ public final class PostPasses {
         private net.minecraft.world.phys.Vec3 prevCamera;
         private long frame = -1;
         private long prevFrame = -2;
-        private Object prevLevel;
+        /** 0.11.1: weak, so a level that was left is not kept by this (static) context. */
+        private java.lang.ref.WeakReference<Object> prevLevel = new java.lang.ref.WeakReference<>(null);
         private boolean continuous;
         /** For stages that get bare matrices (BEFORE_TRANSLUCENT): a stack holding the model-view. */
         private final PoseStack ownPose = new PoseStack();
@@ -102,8 +103,11 @@ public final class PostPasses {
                 cameraDelta.set(0f);
             }
             // History is usable when this stage also ran last frame, in the same level, and the camera did not jump.
-            continuous = prevFrame == frame - 1 && level == prevLevel && cameraDelta.lengthSquared() < 32f * 32f;
-            prevLevel = level;
+            boolean sameLevel = level == prevLevel.get();
+            continuous = prevFrame == frame - 1 && sameLevel && cameraDelta.lengthSquared() < 32f * 32f;
+            if (!sameLevel) {
+                prevLevel = new java.lang.ref.WeakReference<>(level);
+            }
         }
 
         /** Refills this context from bare matrices (the terrain pass's): model-view in an own pose stack. */
@@ -205,6 +209,11 @@ public final class PostPasses {
     private static List<Entry> frozen = List.of();
     private static final java.util.Set<String> FAILED = new java.util.HashSet<>();
 
+    /** 0.11.1: passes turned off after throwing run again (the lib's shader reload). Render thread. */
+    public static void clearFailures() {
+        FAILED.clear();
+    }
+
     private PostPasses() {
     }
 
@@ -234,15 +243,20 @@ public final class PostPasses {
 
     public static void run(Stage stage, Context context) {
         for (Entry entry : frozen) {
-            if (entry.stage() != stage || !entry.feature().isActive()) {
+            if (entry.stage() != stage || !entry.feature().isActive() || FAILED.contains(entry.name())) {
                 continue;
             }
             GpuTimers.begin(entry.name());
+            int depth = GlStateSnapshot.depth();
             try {
                 entry.pass().render(context);
             } catch (RuntimeException e) {
+                // 0.11.1: put back the GL state the pass saved but did not restore, and keep the pass off until the
+                // shader reload (it threw again every frame).
+                GlStateSnapshot.restoreAbove(depth);
                 if (FAILED.add(entry.name())) {
-                    AtmospheraLib.LOGGER.error("Post pass {} of {} failed (logged once)", entry.name(), entry.feature().id(), e);
+                    AtmospheraLib.LOGGER.error("Post pass {} of {} failed; off until /atmosphera reload", entry.name(),
+                            entry.feature().id(), e);
                 }
             }
             GpuTimers.end(entry.name());

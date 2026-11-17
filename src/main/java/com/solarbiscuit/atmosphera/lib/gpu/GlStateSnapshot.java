@@ -49,6 +49,8 @@ public final class GlStateSnapshot {
     private static int pooled;
     private boolean inUse;
     private static int open;
+    /** 0.11.1: the snapshots not yet restored, oldest first (PostPasses restores what a throwing pass left open). */
+    private static GlStateSnapshot[] stack = new GlStateSnapshot[8];
     private static final int[] VIEWPORT_CHECK = new int[4];
     private static final boolean[] MASK_CHECK = new boolean[4];
 
@@ -59,6 +61,10 @@ public final class GlStateSnapshot {
     public static GlStateSnapshot save() {
         GlStateSnapshot s = pooled > 0 ? pool[--pooled] : new GlStateSnapshot();
         s.inUse = true;
+        if (open == stack.length) {
+            stack = java.util.Arrays.copyOf(stack, open * 2);
+        }
+        stack[open] = s;
         open++;
         // Not cached by vanilla: always from the driver.
         s.drawFramebuffer = AtmosGl.getInteger(GL30C.GL_DRAW_FRAMEBUFFER_BINDING);
@@ -103,11 +109,31 @@ public final class GlStateSnapshot {
         GL11C.glColorMask(colorMask[0], colorMask[1], colorMask[2], colorMask[3]);
         if (inUse) {
             inUse = false;
+            // Normally the newest; a snapshot restored out of order is taken out of the middle.
+            for (int i = open - 1; i >= 0; i--) {
+                if (stack[i] == this) {
+                    System.arraycopy(stack, i + 1, stack, i, open - 1 - i);
+                    break;
+                }
+            }
             open--;
+            stack[open] = null;
             if (pooled == pool.length) {
                 pool = java.util.Arrays.copyOf(pool, pooled * 2);
             }
             pool[pooled++] = this;
+        }
+    }
+
+    /** 0.11.1: how many snapshots are open, for {@link #restoreAbove}. */
+    public static int depth() {
+        return open;
+    }
+
+    /** 0.11.1: restores, newest first, every snapshot opened after {@code depth} was read (after an exception). */
+    public static void restoreAbove(int depth) {
+        while (open > depth && open > 0) {
+            stack[open - 1].restore();
         }
     }
 

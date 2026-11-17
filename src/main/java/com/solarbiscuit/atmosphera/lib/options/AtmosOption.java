@@ -74,26 +74,7 @@ public final class AtmosOption<T> {
     }
 
     static int parseRgb(String text) {
-        if (text == null) {
-            return -1;
-        }
-        String t = text.trim();
-        if (t.startsWith("#")) {
-            t = t.substring(1);
-        } else if (t.startsWith("0x") || t.startsWith("0X")) {
-            t = t.substring(2);
-        }
-        if (t.length() == 3) {
-            t = "" + t.charAt(0) + t.charAt(0) + t.charAt(1) + t.charAt(1) + t.charAt(2) + t.charAt(2);
-        }
-        if (t.length() != 6) {
-            return -1;
-        }
-        try {
-            return Integer.parseInt(t, 16);
-        } catch (NumberFormatException e) {
-            return -1;
-        }
+        return com.solarbiscuit.atmosphera.lib.util.Colors.parseRgb(text);
     }
 
     public String path() {

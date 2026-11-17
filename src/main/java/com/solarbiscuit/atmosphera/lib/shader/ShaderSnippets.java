@@ -43,10 +43,42 @@ public final class ShaderSnippets {
     public static synchronized void freeze() {
         frozen = true;
         SNIPPETS.sort(Comparator.comparingInt(Snippet::order));
+        ShaderHook[] hooks = ShaderHook.values();
+        AtmosFeature[][] table = new AtmosFeature[hooks.length][];
+        for (ShaderHook hook : hooks) {
+            java.util.Set<AtmosFeature> features = new java.util.LinkedHashSet<>();
+            for (Snippet s : SNIPPETS) {
+                if (s.hook() == hook) {
+                    features.add(s.feature());
+                }
+            }
+            table[hook.ordinal()] = features.toArray(new AtmosFeature[0]);
+        }
+        byHook = table;
+    }
+
+    /**
+     * 0.10.3: after {@link #freeze} the snippet list never changes, so {@link #any} reads this table of features per
+     * hook without the lock and without allocating (it runs per frame from the LOD bridge).
+     */
+    private static volatile AtmosFeature[][] byHook;
+
+    /**
+     * 0.11.3: {@link #render} per hook after {@link #freeze}. The text depends only on the snippet list (the feature
+     * state is in its {@code #if defined} guards), so it never changes once frozen.
+     */
+    private static String[] rendered;
+
+    /** True once {@link #freeze} ran: the snippet list, and so every {@link #render} result, is final. */
+    public static boolean frozen() {
+        return byHook != null;
     }
 
     /** All snippets for a hook, wrapped in their feature and pass guards. */
     public static synchronized String render(ShaderHook hook) {
+        if (rendered != null && rendered[hook.ordinal()] != null) {
+            return rendered[hook.ordinal()];
+        }
         StringBuilder out = new StringBuilder();
         for (Snippet s : SNIPPETS) {
             if (s.hook() != hook) {
@@ -66,20 +98,53 @@ public final class ShaderSnippets {
             }
             out.append("#endif\n");
         }
-        return out.toString();
+        String text = out.toString();
+        if (frozen) {
+            if (rendered == null) {
+                rendered = new String[ShaderHook.values().length];
+            }
+            rendered[hook.ordinal()] = text;
+        }
+        return text;
     }
 
     public static synchronized int count() {
         return SNIPPETS.size();
     }
 
+    /** Whether any snippet of an active feature (per {@code active}) is registered for the hook. Any thread. */
+    public static boolean any(java.util.function.Predicate<AtmosFeature> active, ShaderHook hook) {
+        AtmosFeature[][] table = byHook;
+        if (table == null) {
+            return anyBeforeFreeze(active, hook);
+        }
+        for (AtmosFeature feature : table[hook.ordinal()]) {
+            if (active.test(feature)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** {@link #any(java.util.function.Predicate, ShaderHook)} for either of two hooks, without a varargs array. */
+    public static boolean any(java.util.function.Predicate<AtmosFeature> active, ShaderHook first, ShaderHook second) {
+        return any(active, first) || any(active, second);
+    }
+
     /** Whether any snippet of an active feature (per {@code active}) is registered for one of the hooks. */
-    public static synchronized boolean any(java.util.function.Predicate<AtmosFeature> active, ShaderHook... hooks) {
+    public static boolean any(java.util.function.Predicate<AtmosFeature> active, ShaderHook... hooks) {
+        for (ShaderHook hook : hooks) {
+            if (any(active, hook)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static synchronized boolean anyBeforeFreeze(java.util.function.Predicate<AtmosFeature> active, ShaderHook hook) {
         for (Snippet s : SNIPPETS) {
-            for (ShaderHook hook : hooks) {
-                if (s.hook() == hook && active.test(s.feature())) {
-                    return true;
-                }
+            if (s.hook() == hook && active.test(s.feature())) {
+                return true;
             }
         }
         return false;

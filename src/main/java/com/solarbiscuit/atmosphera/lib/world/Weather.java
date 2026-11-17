@@ -35,10 +35,16 @@ public final class Weather {
     /**
      * A level's weather as its source states it. {@code changeAt}: the game time of the next change, or -1 when
      * unknown; {@code next}: what follows then. {@code contrast} and {@code seed} shape the regional cells
-     * ({@link #intensityAt}); contrast 0 is the same weather everywhere.
+     * ({@link #intensityAt}); contrast 0 is the same weather everywhere. {@code stormAt} (0.10.2): the game time
+     * thunder starts within the current spell, or -1 when none is due or unknown.
      */
     public record State(Type type, float intensity, float windFactor, Type next, float nextIntensity, long changeAt,
-                        long seed, float contrast) {
+                        long seed, float contrast, long stormAt) {
+        /** Without a storm time (before 0.10.2). */
+        public State(Type type, float intensity, float windFactor, Type next, float nextIntensity, long changeAt,
+                     long seed, float contrast) {
+            this(type, intensity, windFactor, next, nextIntensity, changeAt, seed, contrast, -1L);
+        }
     }
 
     /** A mutable reading, filled by {@link #current}; keep one per caller. */
@@ -52,6 +58,8 @@ public final class Weather {
         public float nextIntensity;
         /** Game ticks until the next change, or -1 when unknown (no forecast). */
         public long ticksToChange = -1;
+        /** 0.10.2: game ticks until thunder starts within the current spell, or -1 when none is due or unknown. */
+        public long ticksToStorm = -1;
         /** True when a weather mod's state stands behind this (not the vanilla default). */
         public boolean modelled;
     }
@@ -92,7 +100,21 @@ public final class Weather {
         }
     }
 
-    /** Server: withdraws a level's state (the weather mod stopped); clients fall back when they next join. */
+    /**
+     * Server: withdraws a level's state (the weather mod stopped) and tells the clients in that level, which fall back
+     * to their own sources (0.10.3; before, they kept the last state until they left the server). Server thread.
+     */
+    public static void withdraw(net.minecraft.server.level.ServerLevel level) {
+        State before = SERVER.remove(level.dimension());
+        if (before != null) {
+            com.solarbiscuit.atmosphera.lib.net.AtmosNet.sendWithdraw(level, before);
+        }
+    }
+
+    /**
+     * Server: withdraws a level's state without telling anyone, for a level that is unloading (nobody is left in it).
+     * Use {@link #withdraw(net.minecraft.server.level.ServerLevel)} while players may be there.
+     */
     public static void withdraw(ResourceKey<Level> dimension) {
         SERVER.remove(dimension);
     }
@@ -102,9 +124,14 @@ public final class Weather {
         return SERVER.get(dimension);
     }
 
-    /** Client: a state arrived from the server (network thread or main thread). */
+    /** Client: a state arrived from the server. Main thread. */
     public static void acceptSynced(ResourceKey<Level> dimension, State state) {
         SYNCED.put(dimension, state);
+    }
+
+    /** Client: the server withdrew a level's state (0.10.3). Main thread. */
+    public static void dropSynced(ResourceKey<Level> dimension) {
+        SYNCED.remove(dimension);
     }
 
     /** Client: forget every synced state (on leaving a server). */
@@ -129,10 +156,12 @@ public final class Weather {
             out.next = state.next;
             out.nextIntensity = state.nextIntensity;
             out.ticksToChange = state.changeAt < 0 ? -1 : Math.max(0L, state.changeAt - level.getGameTime());
+            out.ticksToStorm = state.stormAt < 0 ? -1 : Math.max(0L, state.stormAt - level.getGameTime());
             out.modelled = true;
             return;
         }
         Provider p = provider;
+        out.ticksToStorm = -1;
         if (p != null && level.isClientSide() && p.current(level, partialTick, out)) {
             out.modelled = true;
             return;
@@ -153,6 +182,7 @@ public final class Weather {
         out.next = Type.CLEAR;
         out.nextIntensity = 0f;
         out.ticksToChange = -1;
+        out.ticksToStorm = -1;
         out.modelled = false;
     }
 
@@ -191,11 +221,18 @@ public final class Weather {
     }
 
     private static float lattice(long x, long y, long seed) {
-        long z = x * 0x9E3779B97F4A7C15L ^ y * 0xC2B2AE3D27D4EB4FL ^ seed;
-        z = (z ^ (z >>> 30)) * 0xBF58476D1CE4E5B9L;
-        z = (z ^ (z >>> 27)) * 0x94D049BB133111EBL;
-        z ^= z >>> 31;
-        return (z >>> 40) / (float) (1L << 24);
+        return com.solarbiscuit.atmosphera.lib.util.AtmosMath.unit(
+                com.solarbiscuit.atmosphera.lib.util.AtmosMath.mix(x * 0x9E3779B97F4A7C15L ^ y * 0xC2B2AE3D27D4EB4FL ^ seed));
+    }
+
+    /**
+     * 0.11.0: whether rain (not snow, not nothing) falls at a position by its biome, as vanilla decides it: the biome's
+     * precipitation and its temperature at that height. Says nothing about whether it is raining now. Thread of the
+     * level.
+     */
+    public static boolean rainsAt(Level level, net.minecraft.core.BlockPos pos) {
+        return level.getBiome(pos).value().getPrecipitationAt(pos)
+                == net.minecraft.world.level.biome.Biome.Precipitation.RAIN;
     }
 
     /** For /atmosphera status. */
@@ -206,6 +243,9 @@ public final class Weather {
                 : s.modelled && provider != null ? provider.name() : "vanilla levels";
         String forecast = s.ticksToChange < 0 ? "no forecast"
                 : String.format(java.util.Locale.ROOT, "%s in %d s", s.next, s.ticksToChange / 20);
+        if (s.ticksToStorm >= 0) {
+            forecast += String.format(java.util.Locale.ROOT, ", thunder in %d s", s.ticksToStorm / 20);
+        }
         return String.format(java.util.Locale.ROOT, "Weather: %s, intensity %.2f, wind x%.2f, %s (from %s)",
                 s.type, s.intensity, s.windFactor, forecast, source);
     }

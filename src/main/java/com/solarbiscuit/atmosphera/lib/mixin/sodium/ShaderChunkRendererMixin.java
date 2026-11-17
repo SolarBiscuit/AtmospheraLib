@@ -26,6 +26,16 @@ public abstract class ShaderChunkRendererMixin implements ProgramCache.Recompila
         ProgramCache.track(this);
     }
 
+    /**
+     * 0.11.1: Xenon's {@code delete} frees every program but leaves them in the map. A recompile request reaching the
+     * deleted renderer (still weakly tracked until the next GC) deleted them again, and a second
+     * {@code GlProgram.delete()} throws ("Handle is not valid"). The map is emptied with them.
+     */
+    @Inject(method = "delete", at = @At("TAIL"))
+    private void atmos$deleted(me.jellysquid.mods.sodium.client.gl.device.CommandList commandList, CallbackInfo ci) {
+        this.programs.clear();
+    }
+
     @Override
     public void atmos$deletePrograms() {
         for (GlProgram<ChunkShaderInterface> program : this.programs.values()) {

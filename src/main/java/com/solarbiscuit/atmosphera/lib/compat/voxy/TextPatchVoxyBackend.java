@@ -96,7 +96,8 @@ final class TextPatchVoxyBackend implements VoxyBridge.Backend {
     private String patched(String id, String source) throws ReflectiveOperationException {
         String vertexBody = VoxyHostGlsl.vertex();
         String fragmentBody = VoxyHostGlsl.fragment();
-        if (vertexBody.isEmpty() && fragmentBody.isEmpty()) {
+        // 0.11.1: no active LOD feature, no patch (the bodies are never empty: they always hold the keep-alive line).
+        if (!VoxyBridge.animating()) {
             return source;
         }
         String vertex = VoxyTextPatch.VERTEX_ID.equals(id) ? source : (String) this.parse.invoke(null, VoxyTextPatch.VERTEX_ID);

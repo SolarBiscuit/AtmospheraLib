@@ -230,6 +230,8 @@ public final class RenderTargets {
         private int framebuffer;
         private int width;
         private int height;
+        private int failedWidth = -1;
+        private int failedHeight = -1;
 
         private Target(String owner, int divisor, int internalFormat, boolean linear) {
             this.owner = owner;
@@ -245,34 +247,22 @@ public final class RenderTargets {
             if (texture != 0 && w == width && h == height) {
                 return true;
             }
+            if (w == failedWidth && h == failedHeight) {
+                // 0.11.1: incomplete at this size before; try again only when the size changes.
+                return false;
+            }
             release();
             width = w;
             height = h;
-            texture = GpuResources.texture(owner);
-            int previousUnit = GL11C.glGetInteger(GL13C.GL_ACTIVE_TEXTURE);
-            GL13C.glActiveTexture(GL13C.GL_TEXTURE15);
-            GL11C.glBindTexture(GL11C.GL_TEXTURE_2D, texture);
+            // 0.11.0: the shared allocation (Textures), which this method held privately.
             int filter = linear ? GL11C.GL_LINEAR : GL11C.GL_NEAREST;
-            GL11C.glTexParameteri(GL11C.GL_TEXTURE_2D, GL11C.GL_TEXTURE_MIN_FILTER, filter);
-            GL11C.glTexParameteri(GL11C.GL_TEXTURE_2D, GL11C.GL_TEXTURE_MAG_FILTER, filter);
-            GL11C.glTexParameteri(GL11C.GL_TEXTURE_2D, GL11C.GL_TEXTURE_WRAP_S, GL13C.GL_CLAMP_TO_EDGE);
-            GL11C.glTexParameteri(GL11C.GL_TEXTURE_2D, GL11C.GL_TEXTURE_WRAP_T, GL13C.GL_CLAMP_TO_EDGE);
-            GL11C.glTexImage2D(GL11C.GL_TEXTURE_2D, 0, internalFormat, w, h, 0, GL11C.GL_RGBA, GL11C.GL_UNSIGNED_BYTE,
-                    (ByteBuffer) null);
-            GL11C.glBindTexture(GL11C.GL_TEXTURE_2D, 0);
-            GL13C.glActiveTexture(previousUnit);
-            GpuResources.textureBytes(texture, (long) w * h * bytesPerPixel(internalFormat));
-
-            framebuffer = GpuResources.framebuffer(owner);
-            int previous = GL11C.glGetInteger(GL30C.GL_DRAW_FRAMEBUFFER_BINDING);
-            GL30C.glBindFramebuffer(GL30C.GL_DRAW_FRAMEBUFFER, framebuffer);
-            GL30C.glFramebufferTexture2D(GL30C.GL_DRAW_FRAMEBUFFER, GL30C.GL_COLOR_ATTACHMENT0, GL11C.GL_TEXTURE_2D,
-                    texture, 0);
-            int status = GL30C.glCheckFramebufferStatus(GL30C.GL_DRAW_FRAMEBUFFER);
-            GL30C.glBindFramebuffer(GL30C.GL_DRAW_FRAMEBUFFER, previous);
-            if (status != GL30C.GL_FRAMEBUFFER_COMPLETE) {
-                AtmospheraLib.LOGGER.error("Render target {} incomplete: 0x{}", owner, Integer.toHexString(status));
+            texture = Textures.create2D(owner, w, h, internalFormat, GL11C.GL_RGBA, GL11C.GL_UNSIGNED_BYTE, filter,
+                    GL13C.GL_CLAMP_TO_EDGE);
+            framebuffer = Textures.framebuffer(owner, texture);
+            if (framebuffer == 0) {
                 release();
+                failedWidth = w;
+                failedHeight = h;
                 return false;
             }
             return true;
@@ -308,15 +298,5 @@ public final class RenderTargets {
             width = height = 0;
         }
 
-        private static int bytesPerPixel(int format) {
-            return switch (format) {
-                case GL30C.GL_RGBA16F -> 8;
-                case GL30C.GL_RGBA32F -> 16;
-                case GL30C.GL_RG16F, GL30C.GL_R32F -> 4;
-                case GL30C.GL_R16F -> 2;
-                case GL30C.GL_RG32F -> 8;
-                default -> 4;
-            };
-        }
     }
 }

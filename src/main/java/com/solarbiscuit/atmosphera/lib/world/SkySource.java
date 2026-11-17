@@ -39,6 +39,15 @@ public final class SkySource {
         default boolean sunColor(float altitude, float[] rgb) {
             return false;
         }
+
+        /**
+         * Light a daytime sky event adds (0.10.2), such as a bright halo or sun dogs: rgb its colour (linear) times how
+         * strongly it shows now, each about 0..1. Return false while there is none. A light mod adds a small share of
+         * it to the daylight.
+         */
+        default boolean dayLight(float[] rgb) {
+            return false;
+        }
     }
 
     private static volatile Provider provider;
@@ -47,6 +56,7 @@ public final class SkySource {
     private static final float[] TINT = new float[3];
     private static final float[] NIGHT = new float[3];
     private static final float[] SUN = new float[3];
+    private static final float[] DAY = new float[3];
 
     private SkySource() {
     }
@@ -114,6 +124,20 @@ public final class SkySource {
         out[0] = SUN[0];
         out[1] = SUN[1];
         out[2] = SUN[2];
+        return true;
+    }
+
+    /**
+     * Fills out[0..2] with the light a daytime sky event adds (0.10.2, see {@link Provider#dayLight}) and returns true;
+     * otherwise leaves {@code out} alone and returns false. For daylight (Lumis). Render thread.
+     */
+    public static boolean dayLight(float[] out) {
+        if (!active() || !provider.dayLight(DAY)) {
+            return false;
+        }
+        out[0] = DAY[0];
+        out[1] = DAY[1];
+        out[2] = DAY[2];
         return true;
     }
 }

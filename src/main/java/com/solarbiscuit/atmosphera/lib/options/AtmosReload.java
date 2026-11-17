@@ -67,6 +67,7 @@ public final class AtmosReload {
         int ran = 0;
         if (shaders) {
             ProgramCache.recompileAll();
+            com.solarbiscuit.atmosphera.lib.gpu.PostPasses.clearFailures();
             List<Hook> hooks;
             synchronized (AtmosReload.class) {
                 hooks = List.copyOf(HOOKS);

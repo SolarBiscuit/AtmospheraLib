@@ -39,6 +39,8 @@ public final class VoxyHostGlsl {
                     return relativePos + atmos_CameraPos.xyz;
                 }
                 """);
+        // 0.11.0: the shared surface functions (rain rings), as in the Xenon terrain programs.
+        out.append(com.solarbiscuit.atmosphera.lib.shader.ShaderLibrary.SURFACE);
         out.append(ShaderSnippets.render(ShaderHook.LOD_DECL));
         return out.append("// ---- /AtmospheraLib ----\n").toString();
     }
@@ -55,23 +57,45 @@ public final class VoxyHostGlsl {
     private static final String KEEP_FRAGMENT =
             "        f.colour.rgb *= 1.0 + (1.0 - atmos_Lod.w) * 1e-6 * (f.vary.w + float(f.material & 1u));\n";
 
-    /** Statements for {@code voxyExt_vertex}; empty while no active feature has an LOD vertex snippet. */
+    /*
+     * 0.11.3: the full statements, built once after the snippet list is frozen. NeoVoxy asks for the fragment text every
+     * frame (LodShaderExtensions.hasFragment from its pipeline's finish), and assembling it each time was about 10 MB a
+     * second of garbage, most of the family's steady-state allocation with NeoVoxy installed.
+     */
+    private static volatile String fullVertex;
+    private static volatile String fullFragment;
+
+    /** Statements for {@code voxyExt_vertex}; only the keep-alive line while no active feature has an LOD vertex snippet. */
     public static String vertex() {
         if (!ShaderSnippets.any(AtmosFeature::isActive, ShaderHook.LOD_VERTEX)) {
             return KEEP_VERTEX;
         }
-        return "        uint atmos_MaterialBits = v.material & 31u;\n"
-                + "        vec3 position = v.relPos;\n"
-                + ShaderSnippets.render(ShaderHook.LOD_VERTEX)
-                + "        v.offset += position - v.relPos;\n" + KEEP_VERTEX;
+        String text = fullVertex;
+        if (text == null) {
+            text = "        uint atmos_MaterialBits = v.material & 31u;\n"
+                    + "        vec3 position = v.relPos;\n"
+                    + ShaderSnippets.render(ShaderHook.LOD_VERTEX)
+                    + "        v.offset += position - v.relPos;\n" + KEEP_VERTEX;
+            if (ShaderSnippets.frozen()) {
+                fullVertex = text;
+            }
+        }
+        return text;
     }
 
-    /** Statements for {@code voxyExt_fragment}; empty while no active feature has an LOD fragment snippet. */
+    /** Statements for {@code voxyExt_fragment}; only the keep-alive line while no active feature has an LOD fragment snippet. */
     public static String fragment() {
         if (!ShaderSnippets.any(AtmosFeature::isActive, ShaderHook.LOD_FRAGMENT)) {
             return KEEP_FRAGMENT;
         }
-        return "        uint atmos_MaterialBits = f.material & 31u;\n" + ShaderSnippets.render(ShaderHook.LOD_FRAGMENT)
-                + KEEP_FRAGMENT;
+        String text = fullFragment;
+        if (text == null) {
+            text = "        uint atmos_MaterialBits = f.material & 31u;\n" + ShaderSnippets.render(ShaderHook.LOD_FRAGMENT)
+                    + KEEP_FRAGMENT;
+            if (ShaderSnippets.frozen()) {
+                fullFragment = text;
+            }
+        }
+        return text;
     }
 }

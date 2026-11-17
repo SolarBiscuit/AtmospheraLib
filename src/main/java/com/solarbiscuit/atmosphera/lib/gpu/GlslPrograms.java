@@ -62,9 +62,12 @@ public final class GlslPrograms {
         return GpuResources.program(program, owner);
     }
 
-    /** {@code #version 330 core} plus the AtmosFrame block, for prepending to post-pass fragment sources. */
+    /**
+     * {@code #version 330 core} plus the AtmosFrame block and (0.11.0) the shared post-pass functions
+     * ({@link com.solarbiscuit.atmosphera.lib.shader.ShaderLibrary#POST}), for prepending to post-pass fragment sources.
+     */
     public static String header() {
-        return "#version 330 core\n" + FrameUniforms.glslBlock();
+        return "#version 330 core\n" + FrameUniforms.glslBlock() + com.solarbiscuit.atmosphera.lib.shader.ShaderLibrary.POST;
     }
 
     /**
@@ -75,7 +78,7 @@ public final class GlslPrograms {
      * 2026-11 at the first draw).
      */
     public static String header460() {
-        return "#version 460 core\n" + FrameUniforms.glslBlock();
+        return "#version 460 core\n" + FrameUniforms.glslBlock() + com.solarbiscuit.atmosphera.lib.shader.ShaderLibrary.POST;
     }
 
     /** Draws one triangle covering the viewport (use with {@link #FULLSCREEN_VERTEX}). Restores the VAO binding. */

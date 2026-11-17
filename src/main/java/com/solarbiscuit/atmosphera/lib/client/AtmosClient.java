@@ -44,6 +44,34 @@ public final class AtmosClient {
         return frame;
     }
 
+    private static final java.util.List<Runnable> LEAVE_LEVEL = new java.util.concurrent.CopyOnWriteArrayList<>();
+
+    /**
+     * 0.10.3: runs a listener on the main thread each time the client leaves a level: a dimension change, a logout, a
+     * switch of world. Mods drop what they hold of that level there (the level itself, its entities, block entities,
+     * chunks), so a world that was left is not kept in memory until the next one starts. A listener may run more than
+     * once for one departure (a logout also unloads the level), so it must be safe to repeat. Register once, at setup.
+     */
+    public static void onLeaveLevel(Runnable listener) {
+        LEAVE_LEVEL.add(listener);
+    }
+
+    private static void leaveLevel() {
+        // 0.11.1: the lib's own per-world state. The column field kept the level, its arrays, a native buffer and its
+        // texture until the next world rendered; the synced weather of a dimension nobody publishes for any more
+        // stayed in use on the way back (the server sends the new dimension's state after this, when it has one).
+        com.solarbiscuit.atmosphera.lib.world.Weather.clearSynced();
+        // At shutdown the library has freed the texture already; the delete is then skipped quietly.
+        com.solarbiscuit.atmosphera.lib.world.ColumnField.release();
+        for (Runnable listener : LEAVE_LEVEL) {
+            try {
+                listener.run();
+            } catch (RuntimeException e) {
+                AtmospheraLib.LOGGER.warn("A leave-level listener failed: {}", e.toString());
+            }
+        }
+    }
+
     public static void init(IEventBus modBus) {
         LibConfig.init();
         modBus.addListener(AtmosClient::setup);
@@ -81,6 +109,13 @@ public final class AtmosClient {
         MinecraftForge.EVENT_BUS.addListener((net.minecraftforge.client.event.ClientPlayerNetworkEvent.LoggingOut e) -> {
             com.solarbiscuit.atmosphera.lib.world.Weather.clearSynced();
             com.solarbiscuit.atmosphera.lib.net.ServerSettings.clear();
+            leaveLevel();
+        });
+        // 0.10.3: the client leaves a level (dimension change, logout, world switch).
+        MinecraftForge.EVENT_BUS.addListener((net.minecraftforge.event.level.LevelEvent.Unload e) -> {
+            if (e.getLevel().isClientSide()) {
+                leaveLevel();
+            }
         });
         if (AtmosCompat.hasSodiumPort()) {
             OptionsPage.register();

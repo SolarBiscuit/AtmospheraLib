@@ -190,7 +190,7 @@ public final class OptionsPage {
     }
 
     /** The mod's icon glyph (U+E000 of the font {@code <modid>:atmos_icon}) and a space before the page name. */
-    private static Component withIcon(String modId, Component title) {
+    static Component withIcon(String modId, Component title) {
         ResourceLocation font = new ResourceLocation(modId, "atmos_icon");
         try {
             if (Minecraft.getInstance().getResourceManager()

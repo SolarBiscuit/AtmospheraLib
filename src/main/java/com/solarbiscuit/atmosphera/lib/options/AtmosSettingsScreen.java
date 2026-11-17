@@ -102,10 +102,23 @@ public final class AtmosSettingsScreen extends Screen {
         graphics.drawCenteredString(font, title, width / 2, 12, 0xFFFFFF);
     }
 
+    private boolean applied;
+
     @Override
     public void onClose() {
+        applied = true;
         AtmosConfig.saveAndApply();
         minecraft.setScreen(parent);
+    }
+
+    /** 0.11.1: replaced without Done (a disconnect or kick screen): the edits are saved and applied too. */
+    @Override
+    public void removed() {
+        if (!applied) {
+            applied = true;
+            AtmosConfig.saveAndApply();
+        }
+        super.removed();
     }
 
     // ---- the page's rows ----
@@ -240,17 +253,7 @@ public final class AtmosSettingsScreen extends Screen {
     }
 
     private static Component withIcon(String modId, Component title) {
-        try {
-            if (Minecraft.getInstance().getResourceManager()
-                    .getResource(new ResourceLocation(modId, "font/atmos_icon.json")).isEmpty()) {
-                return title;
-            }
-        } catch (Throwable e) {
-            return title;
-        }
-        MutableComponent icon = Component.literal("")
-                .withStyle(style -> style.withFont(new ResourceLocation(modId, "atmos_icon")));
-        return Component.empty().append(icon).append(" ").append(title);
+        return OptionsPage.withIcon(modId, title);
     }
 
     // ---- list and rows ----

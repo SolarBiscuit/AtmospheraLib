@@ -43,6 +43,8 @@ public final class AtmosFeature {
     }
 
     private final String id;
+    /** 0.11.3: built once (it ran a regex on every call, per snippet, per frame from the LOD bridge). */
+    private final String macro;
     private final String ownerModId;
     private final String nameKey;
     private final Set<Capability> capabilities;
@@ -56,6 +58,7 @@ public final class AtmosFeature {
     private AtmosFeature(Builder b, int index) {
         this.switchOption = b.switchOption;
         this.id = b.id;
+        this.macro = "ATMOS_F_" + b.id.toUpperCase(Locale.ROOT).replaceAll("[^A-Z0-9]", "_");
         this.ownerModId = b.ownerModId;
         this.nameKey = b.nameKey;
         this.capabilities = Set.copyOf(b.capabilities);
@@ -122,7 +125,7 @@ public final class AtmosFeature {
 
     /** GLSL macro defined while the feature is active, for example {@code ATMOS_F_GALE_WAVING}. */
     public String macro() {
-        return "ATMOS_F_" + id.toUpperCase(Locale.ROOT).replaceAll("[^A-Z0-9]", "_");
+        return macro;
     }
 
     /** The config option that switches this feature (shown with live status in the options tab), or null. */
