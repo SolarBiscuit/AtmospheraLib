@@ -178,8 +178,33 @@ public final class VoxyBridge {
         beforeDrawArray = BEFORE_DRAW.toArray(new Runnable[0]);
     }
 
-    /** Asks NeoVoxy to rebuild its LOD renderer (meshes included), for example to collect emitters again. */
+    /** 0.11.4: reasons asked since the last flush (render thread), joined into one rebuild. */
+    private static final java.util.LinkedHashSet<String> PENDING_REBUILD = new java.util.LinkedHashSet<>();
+
+    /**
+     * Asks NeoVoxy to rebuild its LOD renderer (meshes included), for example to collect emitters again.
+     * <p>
+     * 0.11.4 (integration test IT-6, IT-7): the request is held until the next frame starts, so requests made in the
+     * same frame become one rebuild (joining a world made two back to back), and it is dropped when there is no level
+     * or the client is leaving it (rebuilds were asked of a renderer that was shutting down). Render thread.
+     */
     public static void requestRendererRebuild(String reason) {
+        if (backend instanceof NativeVoxyBackend) {
+            PENDING_REBUILD.add(reason);
+        }
+    }
+
+    /** 0.11.4: sends the held rebuild requests as one (render tick start, from {@code AtmosClient}). */
+    public static void flushRendererRebuild() {
+        if (PENDING_REBUILD.isEmpty()) {
+            return;
+        }
+        net.minecraft.client.multiplayer.ClientLevel level = net.minecraft.client.Minecraft.getInstance().level;
+        String reason = String.join("; ", PENDING_REBUILD);
+        PENDING_REBUILD.clear();
+        if (level == null || com.solarbiscuit.atmosphera.lib.client.AtmosClient.leaving(level)) {
+            return;
+        }
         if (backend instanceof NativeVoxyBackend nativeBackend) {
             nativeBackend.requestRendererRebuild(reason);
         }

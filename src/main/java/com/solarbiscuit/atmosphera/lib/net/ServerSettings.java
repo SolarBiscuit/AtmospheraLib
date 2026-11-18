@@ -35,8 +35,21 @@ public final class ServerSettings {
      */
     public static void resendOnReload(net.minecraftforge.eventbus.api.IEventBus modBus, String modId,
                                       net.minecraftforge.common.ForgeConfigSpec spec) {
+        // 0.11.4 (integration test IT-5): Forge's file watcher missed a saved server config on the test server, so the
+        // file is also polled from the server tick once a second (as the client configs are, AtmosConfig.poll).
+        Watched watched = new Watched(modId, spec);
+        modBus.addListener((net.minecraftforge.fml.event.config.ModConfigEvent.Loading e) -> {
+            if (e.getConfig().getSpec() == spec) {
+                watched.config = e.getConfig();
+                watched.modified = watched.lastModified();
+                watched.primed = false;
+                WATCHED.add(watched);
+                ensureTicking();
+            }
+        });
         modBus.addListener((net.minecraftforge.fml.event.config.ModConfigEvent.Reloading e) -> {
             if (e.getConfig().getSpec() == spec) {
+                watched.modified = watched.lastModified();
                 MinecraftServer server = net.minecraftforge.server.ServerLifecycleHooks.getCurrentServer();
                 if (server != null) {
                     // The reload comes from the file watcher's thread; players are sent to from the server thread.
@@ -44,6 +57,89 @@ public final class ServerSettings {
                 }
             }
         });
+    }
+
+    /** 0.11.4: a server config polled for edits (see {@link #resendOnReload}). */
+    private static final class Watched {
+        final String modId;
+        final net.minecraftforge.common.ForgeConfigSpec spec;
+        volatile net.minecraftforge.fml.config.ModConfig config;
+        volatile long modified;
+        /** 0.11.5: false until the first poll after loading, which only records the file's time. */
+        volatile boolean primed;
+        java.io.File file;
+
+        Watched(String modId, net.minecraftforge.common.ForgeConfigSpec spec) {
+            this.modId = modId;
+            this.spec = spec;
+        }
+
+        long lastModified() {
+            try {
+                if (file == null && config != null) {
+                    file = config.getFullPath().toFile();
+                }
+                return file == null ? 0L : file.lastModified();
+            } catch (RuntimeException e) {
+                return 0L;
+            }
+        }
+
+        /** Server thread: re-reads the file if it changed on disk; true when it did. */
+        boolean poll() {
+            long now = lastModified();
+            if (!primed) {
+                // 0.11.5: Forge saves the file after loading it, so the first poll found it "edited" and reloaded it
+                // at every server start (a misleading log line). The first poll after loading takes the time as is.
+                primed = config != null;
+                modified = now;
+                return false;
+            }
+            if (now == modified || config == null) {
+                return false;
+            }
+            modified = now;
+            try {
+                if (config.getConfigData() instanceof com.electronwill.nightconfig.core.file.CommentedFileConfig data) {
+                    data.load();
+                    if (spec.correct(data) > 0) {
+                        data.save();
+                        modified = lastModified();
+                    }
+                    spec.afterReload();
+                    com.solarbiscuit.atmosphera.lib.AtmospheraLib.LOGGER.info("Reloaded {} after it was edited.",
+                            config.getFileName());
+                    return true;
+                }
+            } catch (RuntimeException e) {
+                com.solarbiscuit.atmosphera.lib.AtmospheraLib.LOGGER.warn("Could not reload {}: {}",
+                        config.getFileName(), e.toString());
+            }
+            return false;
+        }
+    }
+
+    private static final java.util.List<Watched> WATCHED = new java.util.concurrent.CopyOnWriteArrayList<>();
+    private static boolean ticking;
+    private static int pollTicks;
+
+    private static synchronized void ensureTicking() {
+        if (ticking) {
+            return;
+        }
+        ticking = true;
+        net.minecraftforge.common.MinecraftForge.EVENT_BUS.addListener(
+                (net.minecraftforge.event.TickEvent.ServerTickEvent e) -> {
+                    if (e.phase != net.minecraftforge.event.TickEvent.Phase.END || ++pollTicks < 20) {
+                        return;
+                    }
+                    pollTicks = 0;
+                    for (Watched w : WATCHED) {
+                        if (w.poll()) {
+                            resend(e.getServer(), w.modId);
+                        }
+                    }
+                });
     }
 
     /** Server: sends a mod's settings to everyone again, after its server config changed. */

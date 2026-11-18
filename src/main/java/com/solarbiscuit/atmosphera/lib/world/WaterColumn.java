@@ -30,4 +30,29 @@ public final class WaterColumn {
         }
         return Float.NaN;
     }
+
+    /**
+     * 0.11.6: the height of the water surface met in the blocks {@code yLow - 1 .. yHigh + 1}, scanned top down (at
+     * most 8 blocks, the top ones kept): the top of the first water block with no water above it, or NaN when there is
+     * none. For a box that may cross the surface anywhere along its height (an elder guardian or a player standing
+     * upright in deep water, whose feet are far below it, where {@link #surfaceNear} sees only water above). One more
+     * read than blocks scanned. {@code scratch} is overwritten. Thread of the level.
+     */
+    public static float surfaceAcross(BlockGetter level, int x, int yLow, int yHigh, int z,
+                                      BlockPos.MutableBlockPos scratch) {
+        int top = yHigh + 1;
+        int bottom = Math.max(yLow - 1, top - 7);
+        scratch.set(x, top + 1, z);
+        boolean aboveWater = level.getFluidState(scratch).is(FluidTags.WATER);
+        for (int y = top; y >= bottom; y--) {
+            scratch.set(x, y, z);
+            FluidState fluid = level.getFluidState(scratch);
+            boolean water = fluid.is(FluidTags.WATER);
+            if (water && !aboveWater) {
+                return y + fluid.getHeight(level, scratch);
+            }
+            aboveWater = water;
+        }
+        return Float.NaN;
+    }
 }

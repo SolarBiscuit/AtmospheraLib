@@ -51,6 +51,11 @@ public final class DevFlags {
     public static final String SETTINGS_SCREEN;
     /** Test of a group's title row ({@code settings_toggle=S:modid/page/group}, 0.10.1): toggles it S seconds in. */
     public static final String SETTINGS_TOGGLE;
+    /**
+     * Test of entity ripples ({@code ripple_log=true}, 0.11.6): Torrente logs, once a second, the ripples it sent per
+     * entity type and kind (move, fall, rise, breach).
+     */
+    public static final boolean RIPPLE_LOG;
 
     static {
         Properties file = new Properties();
@@ -113,6 +118,7 @@ public final class DevFlags {
         RELOAD_AT = reloadAt;
         SETTINGS_SCREEN = file.getProperty("settings_screen", "").trim();
         SETTINGS_TOGGLE = file.getProperty("settings_toggle", "").trim();
+        RIPPLE_LOG = Boolean.parseBoolean(file.getProperty("ripple_log", "false").trim());
     }
 
     private DevFlags() {

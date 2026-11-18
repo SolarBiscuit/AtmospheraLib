@@ -56,7 +56,21 @@ public final class AtmosClient {
         LEAVE_LEVEL.add(listener);
     }
 
+    /** 0.11.4: the level the client last left, held weakly (see {@link #leaving}). */
+    private static java.lang.ref.WeakReference<net.minecraft.client.multiplayer.ClientLevel> left =
+            new java.lang.ref.WeakReference<>(null);
+
+    /**
+     * 0.11.4 (integration test IT-7): true while {@code level} is the level the client is leaving. The leave hook runs
+     * before the client drops it, and a frame or two still render with it (the disconnect screen), where features that
+     * start by themselves restarted: the column field reallocated and NeoVoxy was asked for rebuilds while it shut down.
+     */
+    public static boolean leaving(net.minecraft.client.multiplayer.ClientLevel level) {
+        return level != null && level == left.get();
+    }
+
     private static void leaveLevel() {
+        left = new java.lang.ref.WeakReference<>(net.minecraft.client.Minecraft.getInstance().level);
         // 0.11.1: the lib's own per-world state. The column field kept the level, its arrays, a native buffer and its
         // texture until the next world rendered; the synced weather of a dimension nobody publishes for any more
         // stayed in use on the way back (the server sends the new dimension's state after this, when it has one).
@@ -82,6 +96,8 @@ public final class AtmosClient {
         MinecraftForge.EVENT_BUS.addListener((TickEvent.RenderTickEvent e) -> {
             if (e.phase == TickEvent.Phase.START) {
                 com.solarbiscuit.atmosphera.lib.wind.ClientClock.update(net.minecraft.client.Minecraft.getInstance());
+                // 0.11.4: LOD rebuilds asked during the last frame go to NeoVoxy as one.
+                com.solarbiscuit.atmosphera.lib.compat.voxy.VoxyBridge.flushRendererRebuild();
             }
         });
         // AFTER_SKY at high priority (0.7.2): the frame starts and the SKY stage runs before other mods' AFTER_SKY work

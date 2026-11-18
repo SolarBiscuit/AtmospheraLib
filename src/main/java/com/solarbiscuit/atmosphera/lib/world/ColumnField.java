@@ -104,6 +104,10 @@ public final class ColumnField {
      * many consumers call). Call before reading it each frame. Render thread.
      */
     public static void use(Object owner, ClientLevel current, int size) {
+        // 0.11.4 (IT-7): not for a level the client is leaving (it reallocated on the frames drawn while it closed).
+        if (com.solarbiscuit.atmosphera.lib.client.AtmosClient.leaving(current)) {
+            return;
+        }
         long frame = com.solarbiscuit.atmosphera.lib.client.AtmosClient.frame();
         int slot = -1;
         for (int i = 0; i < users; i++) {
